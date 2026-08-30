@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings, normalizeImageDir } from '@md/editor-core'
+import { Editor, isTauri, loadSettings, saveSettings, normalizeImageDir, normalizeVoidTags } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import { loadRepos, saveRepos, baseName, repoOf } from './repos.js'
 import { gitCommit, commitMessage } from './git.js'
@@ -58,9 +58,11 @@ export default function App() {
   const openDoc = useCallback(async (path) => {
     if (docRef.current?.dirty) await persist(docRef.current)
     try {
-      const content = isTauri ? await invoke('read_file', { path }) : `# ${baseName(path)}\n\n데모 문서입니다.`
+      const raw = isTauri ? await invoke('read_file', { path }) : `# ${baseName(path)}\n\n데모 문서입니다.`
+      // MDXEditor 는 `<br>` 을 못 읽는다. 열 때 `<br />` 로 맞춰 준다
+      const { text: content, count } = normalizeVoidTags(raw)
       setDoc({ path, content, dirty: false })
-      setStatus('')
+      setStatus(count ? `<br> ${count}개를 <br /> 로 고쳐 열었습니다 (저장 시 반영)` : '')
     } catch (e) {
       setStatus(`열 수 없습니다: ${e}`)
     }

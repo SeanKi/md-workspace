@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open, save, confirm } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings } from '@md/editor-core'
+import { Editor, isTauri, loadSettings, saveSettings, normalizeVoidTags } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -37,13 +37,25 @@ export default function App() {
   const activeRef = useRef(active)
   activeRef.current = active
 
+  /* ---------- 알림 ---------- */
+
+  const noticeTimer = useRef(0)
+  const say = useCallback((m) => {
+    setNotice(m)
+    clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setNotice(''), 3600)
+  }, [])
+
   /* ---------- 파일 ---------- */
 
   const openPath = useCallback(async (p) => {
     const found = tabsRef.current.find((t) => t.path === p)
     if (found) { setActiveId(found.id); return }
     try {
-      const content = await invoke('read_file', { path: p })
+      const raw = await invoke('read_file', { path: p })
+      // MDXEditor 는 `<br>` 을 못 읽는다. 열 때 `<br />` 로 맞춰 준다
+      const { text: content, count } = normalizeVoidTags(raw)
+      if (count) say(`닫히지 않은 <br> 태그 ${count}개를 <br /> 로 고쳐 열었습니다. 저장하면 파일에 반영됩니다`)
       const t = newTab(p, content)
       setTabs((ts) => {
         // 손대지 않은 빈 탭 하나만 있으면 그 자리를 대신 쓴다
@@ -54,7 +66,7 @@ export default function App() {
     } catch (e) {
       alert(`열 수 없습니다: ${p}\n${e}`)
     }
-  }, [])
+  }, [say])
 
   const openDialog = useCallback(async () => {
     const p = pickPath(await open({ multiple: false, filters: MD_FILTER }))
@@ -112,13 +124,6 @@ export default function App() {
   }, [])
 
   /* ---------- 드래그 앤 드롭 (상단에 놓아야 열린다) ---------- */
-
-  const noticeTimer = useRef(0)
-  const say = useCallback((m) => {
-    setNotice(m)
-    clearTimeout(noticeTimer.current)
-    noticeTimer.current = setTimeout(() => setNotice(''), 2600)
-  }, [])
 
   const onDrop = useCallback((paths, inTop) => {
     if (!inTop) { say('상단 제목줄·탭 영역에 놓아야 파일이 열립니다'); return }

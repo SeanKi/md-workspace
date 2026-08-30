@@ -104,7 +104,28 @@ Alt+Enter 를 붙이면서 두 번 걸렸다. 상세는
 **부작용**: 닫는 슬래시 없는 `<br>` 이 든 파일은 MDXEditor 가 아예 파싱하지 못한다
 (이번 변경과 무관한 기존 제약). 이 앱이 쓸 때는 항상 `<br />` 다.
 
-### 3.7 Windows 실환경 검증의 한계
+### 3.7 `<br>` 이 든 파일을 못 열던 문제
+
+MDXEditor 는 마크다운을 **MDX 로** 읽는다. MDX 에서 `<br>` 은 JSX 여는 태그라
+닫는 태그를 기다리다 파싱이 통째로 실패한다.
+
+```
+Error parsing markdown: Expected a closing tag for `<br>` (88:115-88:119)
+```
+
+GitHub·VS Code·Obsidian 은 같은 파일을 문제없이 읽으므로 **파일이 잘못된 게 아니라
+이 에디터만 못 읽는 것**이다. 파서 쪽에서 끄는 방법은 없다 — mdx-jsx 확장이
+MDXEditor 코어에 박혀 있고 제거 API 가 없다(`importMarkdownToLexical.js`).
+
+그래서 **불러올 때 `<br />` 로 맞춰서** 연다
+(`packages/editor-core/src/normalizeMarkdown.js`). 두 표기는 어느 도구에서나
+결과가 같다. 건드리지 않는 것: 코드블록·인라인 코드 안, 이미 자가닫힘인 것,
+속성이 붙은 `<br class="x">`.
+
+**주의**: 파일이 실제로 바뀌는 시점은 사용자가 저장할 때다. 열기만 하면 디스크는
+그대로다. 고친 개수는 화면에 알려 준다.
+
+### 3.8 Windows 실환경 검증의 한계
 
 Cowork 세션은 리눅스 컨테이너라 Windows 앱을 직접 실행하지 못했다. 대신
 헤들리스 브라우저(UI 동작)와 Xvfb 가상 디스플레이(실제 Tauri 바이너리 실행)로 검증했다.
@@ -189,8 +210,6 @@ Yjs 는 "두 사람이 같은 문단을 동시에 타이핑"이 실제로 필요
   고치려면 표 플러그인을 lexical 기본 표로 갈아끼워야 한다(사실상 재구현).
   상세와 값싼 대안은 [Implementation_Status.md](Implementation_Status.md) 의
   "표 복사 제약" 절
-- **닫는 슬래시 없는 `<br>` 이 든 파일은 못 연다** — MDXEditor 파싱 오류.
-  이 앱이 만드는 문서는 항상 `<br />` 라 문제없지만, 남이 만든 표에서 걸릴 수 있다
 - **Mermaid 확대/축소 없음** — 큰 다이어그램은 가로 스크롤만
 - **고아 이미지 정리 없음** — 문서를 지워도 `images/` 에 남는다
 - **MD Editor 자동 저장 없음** (MDSyncNote 에는 있음)
