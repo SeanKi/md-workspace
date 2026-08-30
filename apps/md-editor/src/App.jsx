@@ -43,7 +43,7 @@ export default function App() {
   const say = useCallback((m) => {
     setNotice(m)
     clearTimeout(noticeTimer.current)
-    noticeTimer.current = setTimeout(() => setNotice(''), 3600)
+    noticeTimer.current = setTimeout(() => setNotice(''), 6000)
   }, [])
 
   /* ---------- 파일 ---------- */
@@ -55,7 +55,7 @@ export default function App() {
       const raw = await invoke('read_file', { path: p })
       // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
       const { text: content, count, stat } = normalizeForEditor(raw)
-      if (count) say(`${describeFixes(stat)} 를 고쳐 열었습니다. 저장하면 파일에 반영됩니다`)
+      if (count) say(`${describeFixes(stat)}를 고쳐 열었습니다. 저장하면 파일에 반영됩니다`)
       const t = newTab(p, content)
       setTabs((ts) => {
         // 손대지 않은 빈 탭 하나만 있으면 그 자리를 대신 쓴다

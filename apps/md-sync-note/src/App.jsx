@@ -62,7 +62,7 @@ export default function App() {
       // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
       const { text: content, count, stat } = normalizeForEditor(raw)
       setDoc({ path, content, dirty: false })
-      setStatus(count ? `${describeFixes(stat)} 고쳐 열었습니다 (저장 시 반영)` : '')
+      setStatus(count ? `${describeFixes(stat)}를 고쳐 열었습니다 (저장 시 반영)` : '')
     } catch (e) {
       setStatus(`열 수 없습니다: ${e}`)
     }
