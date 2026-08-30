@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings, normalizeImageDir, normalizeVoidTags } from '@md/editor-core'
+import { Editor, isTauri, loadSettings, saveSettings, normalizeImageDir, normalizeForEditor, describeFixes } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import { loadRepos, saveRepos, baseName, repoOf } from './repos.js'
 import { gitCommit, commitMessage } from './git.js'
@@ -59,10 +59,10 @@ export default function App() {
     if (docRef.current?.dirty) await persist(docRef.current)
     try {
       const raw = isTauri ? await invoke('read_file', { path }) : `# ${baseName(path)}\n\n데모 문서입니다.`
-      // MDXEditor 는 `<br>` 을 못 읽는다. 열 때 `<br />` 로 맞춰 준다
-      const { text: content, count } = normalizeVoidTags(raw)
+      // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
+      const { text: content, count, stat } = normalizeForEditor(raw)
       setDoc({ path, content, dirty: false })
-      setStatus(count ? `<br> ${count}개를 <br /> 로 고쳐 열었습니다 (저장 시 반영)` : '')
+      setStatus(count ? `${describeFixes(stat)} 고쳐 열었습니다 (저장 시 반영)` : '')
     } catch (e) {
       setStatus(`열 수 없습니다: ${e}`)
     }
@@ -99,8 +99,12 @@ export default function App() {
     }
   }
 
-  const onChange = useCallback((md) => {
-    setDoc((d) => (!d || md === d.content ? d : { ...d, content: md, dirty: true }))
+  // initialNormalize 는 "파일을 연 직후 MDXEditor 가 스스로 다듬은 것"이라는 표시다.
+  // 이걸 편집으로 치면 자동 저장이 손대지도 않은 파일을 다시 써 버린다.
+  const onChange = useCallback((md, initialNormalize) => {
+    setDoc((d) => (
+      !d || md === d.content ? d : { ...d, content: md, dirty: initialNormalize ? d.dirty : true }
+    ))
   }, [])
 
   /* ---------- 자동 저장 ---------- */

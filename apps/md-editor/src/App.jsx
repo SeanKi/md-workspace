@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open, save, confirm } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings, normalizeVoidTags } from '@md/editor-core'
+import { Editor, isTauri, loadSettings, saveSettings, normalizeForEditor, describeFixes } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -53,9 +53,9 @@ export default function App() {
     if (found) { setActiveId(found.id); return }
     try {
       const raw = await invoke('read_file', { path: p })
-      // MDXEditor 는 `<br>` 을 못 읽는다. 열 때 `<br />` 로 맞춰 준다
-      const { text: content, count } = normalizeVoidTags(raw)
-      if (count) say(`닫히지 않은 <br> 태그 ${count}개를 <br /> 로 고쳐 열었습니다. 저장하면 파일에 반영됩니다`)
+      // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
+      const { text: content, count, stat } = normalizeForEditor(raw)
+      if (count) say(`${describeFixes(stat)} 를 고쳐 열었습니다. 저장하면 파일에 반영됩니다`)
       const t = newTab(p, content)
       setTabs((ts) => {
         // 손대지 않은 빈 탭 하나만 있으면 그 자리를 대신 쓴다
@@ -117,10 +117,15 @@ export default function App() {
     })
   }, [activeId])
 
-  const onEditorChange = useCallback((md) => {
+  // 두 번째 인자는 "파일을 연 직후 MDXEditor 가 스스로 다듬은 것"이라는 표시다.
+  // 이걸 사용자의 편집으로 치면, 손대지도 않은 문서가 수정됨으로 잡혀
+  // 저장 한 번에 파일이 통째로 다시 쓰인다(물결·밑줄이 이스케이프된다).
+  const onEditorChange = useCallback((md, initialNormalize) => {
     const t = activeRef.current
     if (!t || md === t.content) return
-    setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, content: md, dirty: true } : x)))
+    setTabs((ts) => ts.map((x) => (
+      x.id === t.id ? { ...x, content: md, dirty: initialNormalize ? x.dirty : true } : x
+    )))
   }, [])
 
   /* ---------- 드래그 앤 드롭 (상단에 놓아야 열린다) ---------- */
