@@ -1,0 +1,131 @@
+/* --- 탭 바 --- */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 6px;
+  background: #eef0f3;
+  border-bottom: 1px solid #dcdfe4;
+  overflow-x: auto;
+  user-select: none;
+  flex: none;
+}
+.tabbar::-webkit-scrollbar { height: 6px; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 6px 8px 6px 12px;
+  font-size: 12px;
+  color: #555;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover { background: #e3e6ea; }
+.tab.on {
+  background: #fff;
+  color: #111;
+  border-color: #dcdfe4;
+  font-weight: 600;
+}
+.tab-name { overflow: hidden; text-overflow: ellipsis; }
+.tab-dot { color: #e08b00; font-size: 9px; }
+.tab-x {
+  padding: 0 3px;
+  border-radius: 4px;
+  color: #999;
+  line-height: 1;
+}
+.tab-x:hover { background: #d0d4da; color: #333; }
+.tab-add {
+  align-self: center;
+  margin-left: 4px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: #666;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+.tab-add:hover { background: #e3e6ea; }
+
+/* --- 설정 --- */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  background: #fffdf5;
+  border-bottom: 1px solid #ecdfae;
+  flex: none;
+}
+.settings .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.settings label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.settings input {
+  font: inherit;
+  padding: 4px 8px;
+  width: 180px;
+  border: 1px solid #d0d0d0;
+  border-radius: 5px;
+}
+.settings .hint { color: #7a6a3a; font-weight: 400; }
+.settings code {
+  padding: 1px 4px;
+  background: #f0e9d2;
+  border-radius: 3px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+/* --- Windows 파일 연결 --- */
+.assoc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed #ecdfae;
+}
+.assoc-title { font-weight: 600; }
+.assoc button {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid #d8ce9e;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+.assoc button:hover:not(:disabled) { background: #f7f1dc; }
+.assoc button:disabled { color: #b9b09a; cursor: default; }
+
+/* --- 드래그 앤 드롭 --- */
+/* 상단(제목줄+탭바)이 파일 열기 드롭존이다. 본문에 놓으면 아무 일도 하지 않는다. */
+.topzone { flex: none; }
+.topzone.drop-in {
+  outline: 2px dashed #2563eb;
+  outline-offset: -3px;
+  background: #eef4ff;
+}
+.topzone.drop-out { outline: 2px dashed #cbd2dc; outline-offset: -3px; }
+.drop-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(37, 99, 235, .92);
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 100;
+}
+.drop-hint.warn { background: rgba(120, 113, 108, .94); }

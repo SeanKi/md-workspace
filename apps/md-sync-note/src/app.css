@@ -1,0 +1,149 @@
+#root { display: block; height: 100%; }
+
+.shell { display: flex; height: 100%; }
+
+/* --- 왼쪽 사이드바 --- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  min-width: 180px;
+  border-right: 1px solid #dcdfe4;
+  background: #f7f8fa;
+  user-select: none;
+}
+.side-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #444;
+  border-bottom: 1px solid #e2e5ea;
+}
+.side-head button {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid #cfd4da;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+.side-head button:hover { background: #eceff3; }
+.side-body { flex: 1; overflow: auto; padding-bottom: 20px; }
+.empty { padding: 24px 14px; font-size: 12px; color: #8a8f97; line-height: 1.7; }
+
+.repo { margin-bottom: 6px; }
+.repo-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  background: #eceff3;
+  cursor: pointer;
+}
+.repo-head:hover { background: #e4e8ee; }
+.repo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-x { padding: 0 4px; color: #999; border-radius: 4px; }
+.repo-x:hover { background: #d5dae1; color: #333; }
+.repo-path {
+  padding: 0 8px 5px 22px;
+  font-size: 10px;
+  color: #9aa0a8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- 저장소 머리의 git 줄 --- */
+.repo-git {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 8px 6px 22px;
+  font-size: 10px;
+}
+.git-on { color: #2f7d4f; font-weight: 600; }
+.git-off { color: #9aa0a8; }
+.git-dirty { color: #b06a00; }
+.git-msg { color: #7a8087; }
+.repo-git button {
+  font: inherit;
+  font-size: 10px;
+  padding: 1px 6px;
+  border: 1px solid #cfd4da;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+.repo-git button:hover:not(:disabled) { background: #eceff3; }
+.repo-git button:disabled { color: #b8bdc4; cursor: default; }
+
+.node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #3c4149;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node:hover { background: #e6eaf0; }
+.node.on { background: #dbe6fb; color: #14346b; font-weight: 600; }
+.node .caret { width: 10px; color: #98a0aa; font-size: 9px; }
+.node .ico { font-size: 11px; }
+.node.muted, .node.err { cursor: default; font-size: 11px; }
+.node.muted { color: #a4aab2; }
+.node.muted:hover, .node.err:hover { background: transparent; }
+.node.err { color: #b91c1c; white-space: normal; }
+
+/* --- 오른쪽 --- */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.titlebar .status { font-size: 11px; color: #7a8087; margin-right: 6px; }
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #a4aab2;
+  font-size: 13px;
+}
+
+/* --- 설정 --- */
+.settings {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  font-size: 12px;
+  background: #fffdf5;
+  border-bottom: 1px solid #ecdfae;
+  flex: none;
+  flex-wrap: wrap;
+}
+.settings label { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.settings input {
+  font: inherit;
+  padding: 4px 8px;
+  width: 150px;
+  border: 1px solid #d0d0d0;
+  border-radius: 5px;
+}
+.settings .check { font-weight: 600; gap: 4px; }
+.settings .check input { width: auto; }
+.settings .hint { color: #7a6a3a; font-weight: 400; }
+.settings code {
+  padding: 1px 4px;
+  background: #f0e9d2;
+  border-radius: 3px;
+  font-family: ui-monospace, Consolas, monospace;
+}

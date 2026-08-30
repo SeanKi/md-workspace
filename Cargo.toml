@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/md-core",
+    "apps/md-editor/src-tauri",
+    "apps/md-sync-note/src-tauri",
+]
+
+[workspace.dependencies]
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+md-core = { path = "crates/md-core" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

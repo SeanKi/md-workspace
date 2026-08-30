@@ -1,0 +1,107 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  color: #1a1a1a;
+  background: #fff;
+}
+#root { display: flex; flex-direction: column; }
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fafafa;
+  user-select: none;
+}
+.titlebar .name { font-weight: 600; }
+.titlebar .path { color: #888; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.titlebar .dot { color: #e08b00; }
+.titlebar .spacer { flex: 1; }
+.titlebar button {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+.titlebar button:hover { background: #f0f0f0; }
+
+.editor-wrap { flex: 1; overflow: auto; }
+
+/* 툴바를 스크롤해도 상단에 고정.
+   .mdxeditor 가 height:100% 이면 sticky 의 기준 박스가 화면 높이에서 끝나버려
+   그보다 아래로 스크롤할 때 툴바가 같이 밀려 올라간다. min-height 로 바꿔
+   본문 전체 높이를 기준 박스로 만들어야 끝까지 붙어 있는다. */
+.mdxeditor { min-height: 100%; }
+.mdxeditor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+/* --- Mermaid 블록 --- */
+.mermaid-block {
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  margin: 16px 0;
+  overflow: hidden;
+  background: #fff;
+}
+.mermaid-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: #f5f6f8;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 11px;
+}
+.mermaid-tag { color: #666; letter-spacing: .04em; text-transform: uppercase; }
+.mermaid-badge { color: #b91c1c; font-weight: 600; }
+.mermaid-spacer { flex: 1; }
+.mermaid-head button {
+  font: inherit;
+  padding: 3px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+.mermaid-head button:hover { background: #ececec; }
+.mermaid-src {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #eee;
+  padding: 10px 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+.mermaid-view {
+  padding: 16px;
+  text-align: center;
+  overflow-x: auto;
+}
+.mermaid-view svg { max-width: 100%; height: auto; }
+.mermaid-error {
+  margin: 0;
+  padding: 12px 14px;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.mermaid-empty { padding: 24px; color: #999; text-align: center; font-size: 13px; }
+

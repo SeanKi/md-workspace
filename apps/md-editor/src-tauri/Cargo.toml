@@ -1,0 +1,22 @@
+[package]
+name = "md-editor"
+version = "0.4.1"
+edition = "2021"
+
+[lib]
+name = "md_editor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+md-core = { workspace = true }
+serde = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# .md 파일 연결을 HKCU 에 등록한다 (win_assoc.rs)
+winreg = "0.56"
+

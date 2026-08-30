@@ -1,0 +1,12 @@
+{
+  "name": "md-workspace",
+  "private": true,
+  "version": "0.4.1",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "editor": "npm run start -w md-editor",
+    "sync-note": "npm run start -w md-sync-note",
+    "build:editor": "npm run release -w md-editor",
+    "build:sync-note": "npm run release -w md-sync-note"
+  }
+}

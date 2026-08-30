@@ -1,0 +1,9 @@
+[package]
+name = "md-core"
+version = "0.4.1"
+edition = "2021"
+
+[dependencies]
+tauri = { workspace = true }
+base64 = { workspace = true }
+serde = { workspace = true }

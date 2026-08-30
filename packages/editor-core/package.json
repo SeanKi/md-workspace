@@ -1,0 +1,20 @@
+{
+  "name": "@md/editor-core",
+  "private": true,
+  "version": "0.4.1",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./editor.css": "./src/editor.css"
+  },
+  "peerDependencies": {
+    "lexical": "^0.48.0",
+    "@lexical/react": "^0.48.0",
+    "@mdxeditor/editor": "^4.2.3",
+    "@tauri-apps/api": "^2",
+    "mermaid": "^11.17.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
