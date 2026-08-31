@@ -168,7 +168,9 @@ export default function App() {
         />
       </div>
 
-      {showSettings && <SettingsBar settings={settings} onChange={updateSettings} />}
+      {showSettings && (
+        <SettingsBar settings={settings} onChange={updateSettings} path={active?.path} />
+      )}
 
       <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
         <Editor

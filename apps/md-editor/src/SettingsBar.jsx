@@ -1,8 +1,9 @@
 import React from 'react'
 import { normalizeImageDir } from '@md/editor-core'
 import WinAssoc from './WinAssoc.jsx'
+import SavePdf from './SavePdf.jsx'
 
-export default function SettingsBar({ settings, onChange }) {
+export default function SettingsBar({ settings, onChange, path }) {
   const label = normalizeImageDir(settings.imageDir) || '(문서와 같은 폴더)'
   return (
     <div className="settings">
@@ -33,6 +34,7 @@ export default function SettingsBar({ settings, onChange }) {
           끄면 인쇄물처럼 가운데 고정 폭(900px)으로 봅니다. 이 선택은 저장됩니다.
         </span>
       </div>
+      <SavePdf path={path} />
       <WinAssoc />
     </div>
   )

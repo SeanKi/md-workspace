@@ -28,6 +28,7 @@ pub fn run() {
             md_core::commands::save_binary_b64,
             md_core::commands::read_binary_base64,
             md_core::commands::read_dir,
+            md_core::pdf::save_pdf,
             md_core::watcher::watch_file,
             md_core::watcher::unwatch_file,
             cli::startup_file,

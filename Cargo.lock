@@ -1816,17 +1816,19 @@ dependencies = [
 
 [[package]]
 name = "md-core"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "base64 0.22.1",
  "notify",
  "serde",
  "tauri",
+ "webview2-com",
+ "windows",
 ]
 
 [[package]]
 name = "md-editor"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "md-core",
  "serde",
@@ -1838,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "md-sync-note"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "md-core",
  "serde",

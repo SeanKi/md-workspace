@@ -76,6 +76,18 @@
   border: 1px solid #d0d0d0;
   border-radius: 5px;
 }
+.settings .row-title { font-weight: 700; }
+.settings .row button {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid #d8ce9e;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+.settings .row button:hover:not(:disabled) { background: #f7f1dc; }
+.settings .row button:disabled { color: #b9b09a; cursor: default; }
 .settings .check { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .settings .check input { width: auto; }
 .settings .hint { color: #7a6a3a; font-weight: 400; }
