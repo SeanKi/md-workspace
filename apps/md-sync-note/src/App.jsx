@@ -7,7 +7,7 @@ import { loadRepos, saveRepos, baseName, repoOf } from './repos.js'
 import { gitCommit, commitMessage } from './git.js'
 
 const SETTINGS_KEY = 'md-sync-note-settings'
-const DEFAULTS = { imageDir: 'images', autoSaveSec: 60, autoCommit: true }
+const DEFAULTS = { imageDir: 'images', autoSaveSec: 60, autoCommit: true, wideLayout: false }
 
 let seq = 0
 
@@ -181,6 +181,11 @@ export default function App() {
                      onChange={(e) => update({ autoCommit: e.target.checked })} />
               저장할 때 git commit
             </label>
+            <label className="check">
+              <input type="checkbox" checked={!!settings.wideLayout}
+                     onChange={(e) => update({ wideLayout: e.target.checked })} />
+              본문 전체 폭
+            </label>
             <span className="hint">
               이미지: 비우거나 <code>.</code> 이면 문서와 같은 폴더 (현재
               <b> {normalizeImageDir(settings.imageDir) || '문서와 같은 폴더'}</b>).
@@ -190,7 +195,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="editor-wrap">
+        <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
           {doc
             ? <Editor key={doc.path} markdown={doc.content} onChange={onChange} ctxRef={ctxRef} />
             : <div className="placeholder">왼쪽 트리에서 문서를 선택하면 여기에 열립니다.</div>}

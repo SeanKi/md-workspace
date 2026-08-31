@@ -20,6 +20,19 @@ export default function SettingsBar({ settings, onChange }) {
           현재: <b>{label}</b>
         </span>
       </div>
+      <div className="row">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={!!settings.wideLayout}
+            onChange={(e) => onChange({ wideLayout: e.target.checked })}
+          />
+          본문을 화면 전체 폭으로
+        </label>
+        <span className="hint">
+          끄면 인쇄물처럼 가운데 고정 폭(900px)으로 봅니다. 이 선택은 저장됩니다.
+        </span>
+      </div>
       <WinAssoc />
     </div>
   )

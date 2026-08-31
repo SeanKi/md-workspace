@@ -74,6 +74,17 @@ body {
 }
 .prose > :first-child { margin-top: 0; }
 
+/* 전체 폭 모드 — 종이 흉내를 걷어내고 화면을 꽉 채운다 */
+.editor-wrap.wide { background: #fff; }
+.editor-wrap.wide .prose {
+  max-width: none;
+  margin: 0;
+  padding: 26px 34px 140px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* --- 제목 --- */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
   font-weight: 700;

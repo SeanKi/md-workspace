@@ -76,6 +76,8 @@
   border: 1px solid #d0d0d0;
   border-radius: 5px;
 }
+.settings .check { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.settings .check input { width: auto; }
 .settings .hint { color: #7a6a3a; font-weight: 400; }
 .settings code {
   padding: 1px 4px;

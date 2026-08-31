@@ -170,7 +170,7 @@ export default function App() {
 
       {showSettings && <SettingsBar settings={settings} onChange={updateSettings} />}
 
-      <div className="editor-wrap">
+      <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
         <Editor
           key={active.id}
           markdown={active.content}
