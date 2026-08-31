@@ -1,7 +1,7 @@
 {
   "name": "md-workspace",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "editor": "npm run start -w md-editor",

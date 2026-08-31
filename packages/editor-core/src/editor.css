@@ -47,6 +47,136 @@ body {
   border-bottom: 1px solid #e5e5e5;
 }
 
+/* ===== 본문 조판 =====
+   마크다운을 PDF 로 뽑았을 때처럼 읽기 좋게. 두 앱이 함께 쓴다.
+
+   MDXEditor 의 표에는 손잡이 셀(_toolCell_, _tableToolsColumn_)이 섞여 있어서
+   th/td 를 통째로 꾸미면 손잡이까지 색이 칠해진다. 실제 내용 셀만 골라야 하는데,
+   클래스 이름의 해시(_er3ed_)는 버전마다 바뀌므로 읽을 수 있는 부분으로 부분
+   일치시킨다. */
+
+/* 배경을 깔고 본문을 흰 종이처럼 띄운다 */
+.editor-wrap { background: #f3f4f6; }
+
+.prose {
+  max-width: 900px;
+  margin: 24px auto 60px;
+  padding: 40px 46px 60px;
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 10px 28px rgba(16, 24, 40, .05);
+  font-size: 15px;
+  line-height: 1.75;
+  color: #24292f;
+  word-break: keep-all;        /* 한글은 단어 단위로 끊는다 */
+  overflow-wrap: break-word;   /* 긴 영문·URL 은 강제로 접는다 */
+}
+.prose > :first-child { margin-top: 0; }
+
+/* --- 제목 --- */
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.012em;
+  color: #111418;
+}
+.prose h1 {
+  font-size: 1.95em;
+  margin: 0 0 .7em;
+  padding-bottom: .32em;
+  border-bottom: 1px solid #e3e6ea;
+}
+.prose h2 {
+  font-size: 1.45em;
+  margin: 1.9em 0 .6em;
+  padding-bottom: .26em;
+  border-bottom: 1px solid #edeff2;
+}
+.prose h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+.prose h4 { font-size: 1.05em; margin: 1.4em 0 .4em; color: #37404a; }
+.prose h5, .prose h6 { font-size: 1em; margin: 1.2em 0 .3em; color: #5b646d; }
+
+/* --- 문단 · 목록 --- */
+.prose p { margin: 0 0 1.05em; }
+.prose ul, .prose ol { margin: 0 0 1.05em; padding-left: 1.7em; }
+.prose li { margin: .28em 0; }
+.prose li > ul, .prose li > ol { margin: .28em 0; }
+
+/* --- 링크 · 인라인 코드 --- */
+.prose a {
+  color: #1d4ed8;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(29, 78, 216, .3);
+}
+.prose a:hover { border-bottom-color: #1d4ed8; }
+.prose code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: .88em;
+  padding: .12em .38em;
+  background: #f2f4f7;
+  border: 1px solid #e4e8ed;
+  border-radius: 4px;
+}
+
+/* --- 인용문 --- */
+.prose blockquote {
+  margin: 1.3em 0;
+  padding: .7em 1.1em;
+  color: #55606b;
+  background: #f8f9fb;
+  border-left: 4px solid #cbd5e1;
+  border-radius: 0 6px 6px 0;
+}
+.prose blockquote > :last-child { margin-bottom: 0; }
+
+/* --- 구분선 --- */
+.prose hr {
+  height: 1px;
+  margin: 2.2em 0;
+  border: 0;
+  background: #e3e6ea;
+}
+
+/* --- 표 --- */
+.prose table {
+  border-collapse: collapse;
+  margin: 1.3em 0;
+  font-size: .95em;
+}
+.prose th[class*="AlignedCell"],
+.prose td[class*="AlignedCell"] {
+  padding: 9px 13px;
+  border: 1px solid #dfe3e8;
+  vertical-align: top;
+}
+/* 머리글 — 본문 행과 확실히 구분되게 */
+.prose th[class*="AlignedCell"] {
+  background: #eaeff6;
+  color: #1c2733;
+  font-weight: 700;
+  border-bottom: 2px solid #aab7c7;
+}
+/* 줄무늬와 커서 따라가기 — 칸이 많은 표에서 줄을 놓치지 않게 */
+.prose tbody tr:nth-child(even) td[class*="AlignedCell"] { background: #fafbfc; }
+.prose tbody tr:hover td[class*="AlignedCell"] { background: #eef4fe; }
+
+/* 원본·변경점 모드는 종이 카드를 흉내 내지 않는다 — 편집기니까 화면을 채운다.
+   `.cm-sourceView` 는 그 모드에서만 생기므로 배경을 되돌리는 표시로 쓴다. */
+.editor-wrap:has(.cm-sourceView) { background: #fff; }
+
+/* --- 코드블록 (CodeMirror) ---
+   바깥 틀은 MDXEditor 가 이미 그린다. 여기서 또 테두리를 주면 이중으로 보인다. */
+.prose .cm-editor {
+  background: #fbfcfd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.prose .cm-gutters { background: #f5f7f9; border-right: 1px solid #e8ebee; }
+
+/* --- 이미지 --- */
+.prose img { max-width: 100%; border-radius: 6px; }
+
 /* --- Mermaid 블록 --- */
 .mermaid-block {
   border: 1px solid #dcdcdc;
