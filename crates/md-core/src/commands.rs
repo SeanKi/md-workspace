@@ -17,7 +17,10 @@ pub fn write_file(path: String, contents: String) -> Result<(), String> {
     if let Some(dir) = Path::new(&path).parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    std::fs::write(&path, contents).map_err(|e| e.to_string())
+    std::fs::write(&path, &contents).map_err(|e| e.to_string())?;
+    // 우리가 쓴 내용을 감시기에 알려, 자기 저장이 "외부 변경" 으로 돌아오지 않게 한다
+    crate::watcher::remember(&path, contents.as_bytes());
+    Ok(())
 }
 
 /// 붙여넣은 이미지를 저장한다. 상위 폴더가 없으면 만든다.

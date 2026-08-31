@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { open, save, confirm } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings, normalizeForEditor, describeFixes } from '@md/editor-core'
+import { confirm } from '@tauri-apps/plugin-dialog'
+import { Editor, isTauri, loadSettings, saveSettings } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
 import useShortcuts from './useShortcuts.js'
-import { MD_FILTER, OPENABLE, baseName } from './paths.js'
+import useFiles from './useFiles.js'
+import useExternalChanges from './useExternalChanges.js'
+import ReloadDialog from './ReloadDialog.jsx'
+import { OPENABLE, baseName } from './paths.js'
 
 const SETTINGS_KEY = 'md-editor-settings'
-
-const pickPath = (r) => (typeof r === 'string' ? r : r?.path ?? null)
 
 let seq = 0
 const newTab = (path = null, content = '') => ({
@@ -48,42 +49,12 @@ export default function App() {
 
   /* ---------- 파일 ---------- */
 
-  const openPath = useCallback(async (p) => {
-    const found = tabsRef.current.find((t) => t.path === p)
-    if (found) { setActiveId(found.id); return }
-    try {
-      const raw = await invoke('read_file', { path: p })
-      // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
-      const { text: content, count, stat } = normalizeForEditor(raw)
-      if (count) say(`${describeFixes(stat)}를 고쳐 열었습니다. 저장하면 파일에 반영됩니다`)
-      const t = newTab(p, content)
-      setTabs((ts) => {
-        // 손대지 않은 빈 탭 하나만 있으면 그 자리를 대신 쓴다
-        const blank = ts.length === 1 && !ts[0].path && !ts[0].dirty && !ts[0].content
-        return blank ? [t] : [...ts, t]
-      })
-      setActiveId(t.id)
-    } catch (e) {
-      alert(`열 수 없습니다: ${p}\n${e}`)
-    }
-  }, [say])
+  const { openPath, openDialog, saveActive } =
+    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say })
 
-  const openDialog = useCallback(async () => {
-    const p = pickPath(await open({ multiple: false, filters: MD_FILTER }))
-    if (p) openPath(p)
-  }, [openPath])
+  /* ---------- 외부 변경 감지 ---------- */
 
-  const saveActive = useCallback(async (asNew = false) => {
-    const t = activeRef.current
-    if (!t) return
-    let p = t.path
-    if (!p || asNew) {
-      p = pickPath(await save({ filters: MD_FILTER, defaultPath: t.path ?? 'untitled.md' }))
-      if (!p) return
-    }
-    await invoke('write_file', { path: p, contents: t.content })
-    setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, path: p, dirty: false } : x)))
-  }, [])
+  const { conflicts, resolveConflict } = useExternalChanges({ tabs, tabsRef, setTabs, say })
 
   /* ---------- 탭 ---------- */
 
@@ -216,6 +187,14 @@ export default function App() {
         </div>
       )}
       {notice && <div className="drop-hint warn">{notice}</div>}
+
+      {conflicts.length > 0 && (
+        <ReloadDialog
+          path={conflicts[0]}
+          onReload={() => resolveConflict(conflicts[0], 'reload')}
+          onOverwrite={() => resolveConflict(conflicts[0], 'overwrite')}
+        />
+      )}
     </>
   )
 }

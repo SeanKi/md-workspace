@@ -9,7 +9,10 @@
 //!     md_core::commands::save_binary_b64,
 //!     md_core::commands::read_binary_base64,
 //!     md_core::commands::read_dir,
+//!     md_core::watcher::watch_file,
+//!     md_core::watcher::unwatch_file,
 //! ]
 //! ```
 
 pub mod commands;
+pub mod watcher;

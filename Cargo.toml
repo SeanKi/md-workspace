@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
+notify = "8"
 md-core = { path = "crates/md-core" }
 
 [profile.release]

@@ -22,7 +22,7 @@
 | Windows 파일 연결        |  ✅  | MD Editor, 우클릭 메뉴·연결 프로그램 |
 | 저장소 git init · 자동 commit |  ✅  | MDSyncNote, 저장이 일어날 때만  |
 | 파일/폴더 CRUD          |  ⬜  | 생성·이름변경·삭제·이동         |
-| File Watcher        |  ⬜  | 외부 변경 감지              |
+| File Watcher        |  🟡 | MD Editor 만. MDSyncNote 미적용   |
 | SQLite 메타데이터        |  ⬜  |                       |
 | FTS 전문 검색           |  ⬜  |                       |
 | 변경 이력 / Revision    |  🟡 | 자동 commit 됨. 이력 보기·되돌리기 UI 없음 |
@@ -50,6 +50,7 @@
 | **드래그앤드롭으로 파일 열기** (상단 드롭존)                    |  ✅  | 〃 + `useFileDrop.js`            |
 | **탐색기 우클릭 → MD Editor로 열기**                       |  ✅  | `win_assoc.rs` · `WinAssoc.jsx` |
 | **명령줄 인자로 받은 파일 열기**                              |  ✅  | `cli.rs` (`startup_file`)       |
+| **외부 변경 감지 → 불러오기/덮어쓰기 선택**                    |  ✅  | `md-core/watcher.rs` + `useExternalChanges.js` |
 | **탭으로 여러 문서 열고 전환**                              |  ✅  | 〃                              |
 | 탭별 수정 표시(●) · 닫기 확인                              |  ✅  | 〃                              |
 | 단축키 N/O/S/Shift+S/T/W/Tab                        |  ✅  | 〃                              |
@@ -91,7 +92,7 @@
 | 4   | File Tree — expand/collapse, 클릭 열기, 다중 저장소                                |                                 ✅                                 |
 | 4   | File Tree — 새 파일/폴더, rename, delete, move                                 |                                 ⬜                                 |
 | 4   | File Tree — 최근 파일, 즐겨찾기                                                   |                                 ⬜                                 |
-| 4   | File Watcher 로 외부 변경 감지                                                   |                                 ⬜                                 |
+| 4   | File Watcher 로 외부 변경 감지                                                   |                    🟡 MD Editor 만                    |
 | 5   | Clipboard 이미지 붙여넣기 → 자동 저장 + 링크                                           |                                 ✅                                 |
 | 5   | 이미지 파일명 자동 생성                                                             |                             ✅ 타임스탬프+난수                            |
 | 5   | attachment 폴더 방식                                                          | 🟡 **문서 기준 상대 폴더**로 구현 (계획서의 저장소 공용 `.attachments/` 와 다름 — 아래 참고) |
@@ -101,7 +102,7 @@
 | 5   | 이미지 크기 조정 / 압축                                                            |                                 ⬜                                 |
 | 6   | SQLite (repositories / documents / revisions / sync\_state / sync\_queue) |                                 ⬜                                 |
 | 7   | FTS5 전문 검색                                                                |                                 ⬜                                 |
-| 8   | File Watcher                                                              |                                 ⬜                                 |
+| 8   | File Watcher                                                              |                    🟡 MD Editor 만                    |
 | 9   | Revision History (hash, revision, device id, compare, restore)            |                     🟡 git 자동 커밋으로 이력은 쌓인다. 비교·복원 UI 없음                     |
 | 10  | Offline-first 동기화                                                         |                                 ⬜                                 |
 | 11  | Yjs / CRDT                                                                |                                 ⬜                                 |
@@ -139,7 +140,7 @@ graph LR
 | File Tree               | ✅ (읽기 전용) |
 | Markdown Editor         |     ✅     |
 | Image Paste             |     ✅     |
-| File Watcher            |     ⬜     |
+| File Watcher            |     🟡    |
 | SQLite Metadata         |     ⬜     |
 | SQLite FTS5             |     ⬜     |
 
@@ -197,6 +198,8 @@ md-workspace/
 | 저장소 트리 2단계 펼침 → 파일 열기    | 헤들리스 브라우저                  |      통과      |
 | 이미지 경로 조합 6종             | 단위 테스트                     |      통과      |
 | git 초기화·커밋·중첩 저장소 범위      | `cargo test -p md-sync-note` 3건 |      통과      |
+| 파일 감시 — 해시 판단·폴더 감시 배선   | `cargo test -p md-core` 5건      |      통과      |
+| 외부 변경 → 불러오기/덮어쓰기 흐름     | 헤들리스 브라우저 13건            |      통과      |
 | 파일 연결 등록/해제             | `--register` 후 `reg query`, 해제 후 원복 |   통과   |
 | 인자 파일 열기·드롭존 배치·연결 UI    | 헤들리스 브라우저 8건               |      통과      |
 | git 버튼·저장→커밋·자동커밋 끄기     | 헤들리스 브라우저 12건              |      통과      |
@@ -217,7 +220,7 @@ md-workspace/
 |  순위 | 작업                      | 이유                                                 |
 | :-: | ----------------------- | -------------------------------------------------- |
 |  1  | 파일/폴더 CRUD (생성·이름변경·삭제) | 트리가 읽기 전용이면 실사용이 안 된다. 가장 체감 큼                     |
-|  2  | File Watcher            | 외부 편집기와 공존하려면 필수. 이후 모든 기능의 토대                     |
+|  2  | ~~File Watcher~~         | ✅ v0.5.0 에서 MD Editor 완료. 다음은 MDSyncNote 적용                |
 |  3  | ~~git local 자동 commit~~  | ✅ v0.4.0 에서 완료. 다음은 이력 보기·되돌리기 UI                    |
 |  4  | SQLite + FTS5           | 문서가 쌓여야 의미. 한국어는 trigram 이중 인덱스 필요                 |
 |  5  | 서버 저장소 (WebDAV 등)       | Provider 계층 실제 분리                                  |

@@ -1,9 +1,10 @@
 [package]
 name = "md-core"
-version = "0.4.4"
+version = "0.5.0"
 edition = "2021"
 
 [dependencies]
 tauri = { workspace = true }
 base64 = { workspace = true }
 serde = { workspace = true }
+notify = { workspace = true }

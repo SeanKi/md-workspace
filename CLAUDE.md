@@ -120,6 +120,13 @@ GFM 표는 셀 안에 개행을 담지 못한다. lexical 기본 줄바꿈 노�
 이 범위 제한이 깨지면 남의 작업물이 노트 커밋에 딸려 들어간다. 테스트로 막아 뒀다
 (`cargo test -p md-sync-note`).
 
+### 파일 감시는 폴더를 보고, 판단은 내용 해시로
+
+`crates/md-core/src/watcher.rs`. 편집기들이 "임시 파일 + 이름 바꾸기" 로 저장하므로
+**파일이 아니라 상위 폴더**를 감시해야 감시가 안 끊긴다. 그리고 "우리가 저장한 것"과
+"밖에서 바뀐 것"을 시간으로 가르려 하지 말 것 — 마지막으로 아는 **내용 해시**와
+비교한다. `write_file` 이 쓴 내용을 `watcher::remember` 로 알려 주는 게 그 연결이다.
+
 ### 워크스페이스 링크 확인은 폴더 유무가 아니라 링크 유무로
 
 `node_modules` 가 있어도 `node_modules/@md/editor-core` 가 없으면 vite 가 죽는다.
@@ -142,6 +149,7 @@ npm run build -w md-editor        :: 프론트엔드 컴파일
 npm run build -w md-sync-note
 cargo check --workspace           :: Rust
 cargo test -p md-sync-note        :: git 커맨드 테스트
+cargo test -p md-core             :: 파일 감시 테스트
 npm run editor                    :: 실제로 띄워보기
 ```
 
