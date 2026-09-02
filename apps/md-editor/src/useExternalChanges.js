@@ -15,10 +15,10 @@ import { baseName } from './paths.js'
 export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
   const [conflicts, setConflicts] = useState([])
 
-  const reloadTab = useCallback(async (path) => {
+  /** 파일을 다시 읽어 탭에 넣는다. 이미 읽어 둔 내용이 있으면 그걸 쓴다. */
+  const reloadTab = useCallback(async (path, known) => {
     try {
-      const raw = await invoke('read_file', { path })
-      const { text } = normalizeForEditor(raw)
+      const text = known ?? normalizeForEditor(await invoke('read_file', { path })).text
       // key 를 바꿔 에디터를 다시 마운트한다. 한 인스턴스에 새 내용을 밀어 넣으면
       // 되돌리기 이력이 엉킨다 (CLAUDE.md 참고)
       setTabs((ts) => ts.map((x) => (
@@ -30,18 +30,30 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
     }
   }, [setTabs, say])
 
-  const onExternalChange = useCallback((path) => {
+  const onExternalChange = useCallback(async (path) => {
     const t = tabsRef.current.find((x) => x.path === path)
     if (!t) return
     if (!t.dirty) { reloadTab(path); return }
-    setConflicts((c) => (c.includes(path) ? c : [...c, path]))
-  }, [tabsRef, reloadTab])
+    // 무엇이 달라졌는지 보여주려면 파일 내용이 있어야 한다.
+    // 여기서 한 번 읽어 두고, 불러오기를 고르면 그대로 쓴다.
+    let text = ''
+    try {
+      text = normalizeForEditor(await invoke('read_file', { path })).text
+    } catch (e) {
+      say(`파일을 읽을 수 없습니다: ${e}`)
+      return
+    }
+    setConflicts((c) => (
+      c.some((x) => x.path === path) ? c : [...c, { path, text, mine: t.content }]
+    ))
+  }, [tabsRef, reloadTab, say])
 
   useFileWatch(tabs.map((t) => t.path), onExternalChange)
 
   const resolveConflict = useCallback(async (path, how) => {
-    setConflicts((c) => c.filter((x) => x !== path))
-    if (how === 'reload') { await reloadTab(path); return }
+    const item = conflicts.find((x) => x.path === path)
+    setConflicts((c) => c.filter((x) => x.path !== path))
+    if (how === 'reload') { await reloadTab(path, item?.text); return }
 
     const t = tabsRef.current.find((x) => x.path === path)
     if (!t) return
@@ -52,7 +64,7 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
     } catch (e) {
       say(`저장 실패: ${e}`)
     }
-  }, [tabsRef, setTabs, reloadTab, say])
+  }, [conflicts, tabsRef, setTabs, reloadTab, say])
 
   return { conflicts, resolveConflict }
 }

@@ -34,6 +34,8 @@ struct Watched {
     dirs: HashMap<String, usize>,
     /// 정규화한 키 → 프론트엔드가 준 원래 경로
     original: HashMap<String, String>,
+    /// 우리가 곧 쓸(또는 방금 쓴) 내용의 해시. 자기 저장을 걸러내는 데 쓴다
+    expected: HashMap<String, Vec<u64>>,
 }
 
 fn state() -> &'static Mutex<Watched> {
@@ -52,13 +54,26 @@ fn hash_bytes(b: &[u8]) -> u64 {
     h.finish()
 }
 
-/// 우리가 쓴 내용을 기록해 둔다. 자기 저장이 변경 알림으로 돌아오는 것을 막는다.
-pub fn remember(path: &str, bytes: &[u8]) {
+/// **파일을 쓰기 전에** 부른다. "이 내용은 우리가 쓴 것"이라고 미리 등록해 둔다.
+///
+/// 쓰고 나서 알리면 늦다. 감시 스레드는 이미 디렉터리 핸들에 붙어 깨어 있어서,
+/// 우리 스레드가 write 에서 돌아와 자물쇠를 잡기 전에 먼저 파일을 읽고
+/// "밖에서 바뀌었다"고 판정해 버린다. 저장할 때마다 알림이 뜨던 원인이 이것이다.
+pub fn expect_write(path: &str, bytes: &[u8]) {
     if let Ok(mut st) = state().lock() {
-        let k = key(path);
-        if st.files.contains_key(&k) {
-            st.files.insert(k, hash_bytes(bytes));
-        }
+        note_expected(&mut st, path, bytes);
+    }
+}
+
+fn note_expected(st: &mut Watched, path: &str, bytes: &[u8]) {
+    let k = key(path);
+    if !st.files.contains_key(&k) {
+        return; // 감시 중이 아니면 알 필요가 없다
+    }
+    let list = st.expected.entry(k).or_default();
+    list.push(hash_bytes(bytes));
+    if list.len() > 4 {
+        list.remove(0); // 연달아 저장해도 목록이 늘어나지 않게
     }
 }
 
@@ -77,6 +92,14 @@ fn changed(st: &mut Watched, k: &str) -> bool {
     let now = hash_bytes(&bytes);
     if now == known {
         return false;
+    }
+    // 우리가 쓴다고 미리 알려 둔 내용이면 외부 변경이 아니다
+    if let Some(list) = st.expected.get_mut(k) {
+        if let Some(i) = list.iter().position(|h| *h == now) {
+            list.remove(i);
+            st.files.insert(k.to_string(), now);
+            return false;
+        }
     }
     st.files.insert(k.to_string(), now);
     true
@@ -265,6 +288,34 @@ mod tests {
         assert!(seen, "폴더 감시로 파일 저장 이벤트를 받지 못했다");
     }
 
+    /// 저장할 때마다 "밖에서 바뀌었다" 가 뜨던 문제. 감시 스레드가 우리보다
+    /// 먼저 파일을 읽는 상황을 그대로 재현한다.
+    #[test]
+    fn 저장_전에_알려_두면_자기_저장은_걸러진다() {
+        let p = tmp("expect");
+        let mut st = watched_with(&p, b"first");
+
+        // write_file 이 하는 순서: (1) 미리 알린다 (2) 쓴다
+        note_expected(&mut st, &p, b"second");
+        std::fs::write(&p, b"second").unwrap();
+
+        assert!(!changed(&mut st, &key(&p)), "우리가 쓴 것은 알리지 않는다");
+        // 그 다음 진짜 외부 변경은 정상적으로 잡혀야 한다
+        std::fs::write(&p, b"third").unwrap();
+        assert!(changed(&mut st, &key(&p)), "진짜 외부 변경은 알린다");
+    }
+
+    /// 왜 순서가 중요한지 못 박아 둔다 — 쓰고 나서 알리면 이미 늦다.
+    #[test]
+    fn 쓰고_나서_알리면_늦다() {
+        let p = tmp("late");
+        let mut st = watched_with(&p, b"first");
+
+        std::fs::write(&p, b"second").unwrap();
+        // 여기서 감시 스레드가 먼저 깨면(실제로 거의 항상 그렇다) 외부 변경으로 본다
+        assert!(changed(&mut st, &key(&p)), "늦게 알리면 자기 저장도 외부 변경이 된다");
+    }
+
     #[test]
     fn 우리가_쓴_내용은_알리지_않는다() {
         let p = tmp("remember");
@@ -275,8 +326,8 @@ mod tests {
             g.files.insert(k.clone(), hash_bytes(b"first"));
             g.original.insert(k, p.clone());
         }
+        expect_write(&p, b"second");
         std::fs::write(&p, b"second").unwrap();
-        remember(&p, b"second");
         let mut g = state().lock().unwrap();
         assert!(!changed(&mut g, &key(&p)), "우리가 쓴 것은 알리지 않는다");
     }

@@ -17,9 +17,10 @@ pub fn write_file(path: String, contents: String) -> Result<(), String> {
     if let Some(dir) = Path::new(&path).parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
+    // 쓰기 **전에** 알려야 한다. 쓰고 나서 알리면 감시 스레드가 먼저 깨어
+    // "밖에서 바뀌었다" 고 판정해 버린다 (watcher.rs 참고)
+    crate::watcher::expect_write(&path, contents.as_bytes());
     std::fs::write(&path, &contents).map_err(|e| e.to_string())?;
-    // 우리가 쓴 내용을 감시기에 알려, 자기 저장이 "외부 변경" 으로 돌아오지 않게 한다
-    crate::watcher::remember(&path, contents.as_bytes());
     Ok(())
 }
 

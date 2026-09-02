@@ -194,3 +194,41 @@
 }
 .modal-buttons button.primary:hover { background: #1d4ed8; }
 .modal-buttons button span { font-size: 11px; font-weight: 400; opacity: .78; }
+
+/* --- 외부 변경 대화상자의 변경 내용 --- */
+.diff {
+  margin: 4px 0 18px;
+  border: 1px solid #e2e5ea;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.diff.empty { padding: 12px 14px; font-size: 12px; color: #7a8087; }
+.diff-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  font-size: 11px;
+  background: #f5f6f8;
+  border-bottom: 1px solid #e2e5ea;
+}
+.diff-head .add { color: #1a7f37; font-weight: 700; }
+.diff-head .del { color: #b91c1c; font-weight: 700; }
+.diff-legend { color: #8a8f97; margin-left: auto; }
+.diff-body {
+  max-height: 300px;
+  overflow: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  background: #fff;
+}
+.diff-line { display: flex; gap: 8px; padding: 0 10px; white-space: pre-wrap; }
+.diff-line .mark { width: 8px; flex: none; color: #98a0aa; }
+.diff-line .text { flex: 1; word-break: break-all; }
+.diff-line.add { background: #e9f7ec; color: #14532d; }
+.diff-line.add .mark { color: #1a7f37; }
+.diff-line.del { background: #fdecec; color: #7f1d1d; }
+.diff-line.del .mark { color: #b91c1c; }
+.diff-line.same { color: #7a8087; }
+.diff-line.gap { color: #a4aab2; background: #fafbfc; font-style: italic; }

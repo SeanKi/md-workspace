@@ -192,9 +192,11 @@ export default function App() {
 
       {conflicts.length > 0 && (
         <ReloadDialog
-          path={conflicts[0]}
-          onReload={() => resolveConflict(conflicts[0], 'reload')}
-          onOverwrite={() => resolveConflict(conflicts[0], 'overwrite')}
+          path={conflicts[0].path}
+          mine={conflicts[0].mine}
+          theirs={conflicts[0].text}
+          onReload={() => resolveConflict(conflicts[0].path, 'reload')}
+          onOverwrite={() => resolveConflict(conflicts[0].path, 'overwrite')}
         />
       )}
     </>
