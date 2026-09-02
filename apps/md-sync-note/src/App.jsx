@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { Editor, isTauri, loadSettings, saveSettings, normalizeImageDir, normalizeForEditor, describeFixes } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
+import SearchPanel from './SearchPanel.jsx'
+import { revealText } from './revealText.js'
 import { loadRepos, saveRepos, baseName, repoOf } from './repos.js'
 import { gitCommit, commitMessage } from './git.js'
 
@@ -55,7 +57,7 @@ export default function App() {
 
   /* ---------- 문서 ---------- */
 
-  const openDoc = useCallback(async (path) => {
+  const openDoc = useCallback(async (path, reveal) => {
     if (docRef.current?.dirty) await persist(docRef.current)
     try {
       const raw = isTauri ? await invoke('read_file', { path }) : `# ${baseName(path)}\n\n데모 문서입니다.`
@@ -63,6 +65,8 @@ export default function App() {
       const { text: content, count, stat } = normalizeForEditor(raw)
       setDoc({ path, content, dirty: false })
       setStatus(count ? `${describeFixes(stat)}를 고쳐 열었습니다 (저장 시 반영)` : '')
+      // 검색 결과로 열었으면 그 자리로 데려간다 (에디터가 그려질 때까지 기다린다)
+      if (reveal) revealText(reveal)
     } catch (e) {
       setStatus(`열 수 없습니다: ${e}`)
     }
@@ -159,6 +163,7 @@ export default function App() {
           <span className="spacer" />
           <button onClick={addRepo} title="폴더 추가">+ 추가</button>
         </div>
+        <SearchPanel repos={repos} activePath={doc?.path} onOpen={openDoc} />
         <div className="side-body">
           {repos.length === 0
             ? <div className="empty">아직 저장소가 없습니다.<br />“+ 추가”로 폴더를 등록하세요.</div>

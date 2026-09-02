@@ -14,6 +14,7 @@ pub fn run() {
             md_core::commands::create_file,
             md_core::commands::rename_path,
             md_core::commands::delete_path,
+            md_core::search::search_repo,
             git::git_status,
             git::git_init,
             git::git_commit,

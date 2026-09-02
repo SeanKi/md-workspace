@@ -1816,7 +1816,7 @@ dependencies = [
 
 [[package]]
 name = "md-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "base64 0.22.1",
  "notify",
@@ -1829,7 +1829,7 @@ dependencies = [
 
 [[package]]
 name = "md-editor"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "md-core",
  "serde",
@@ -1841,7 +1841,7 @@ dependencies = [
 
 [[package]]
 name = "md-sync-note"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "md-core",
  "serde",

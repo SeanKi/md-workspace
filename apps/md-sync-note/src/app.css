@@ -222,3 +222,69 @@
 .modal-buttons button:hover { background: #e9ebef; }
 .modal-buttons button.primary { color: #fff; background: #2563eb; border-color: #2563eb; }
 .modal-buttons button.primary:hover { background: #1d4ed8; }
+
+/* --- 저장소 검색 --- */
+.search { border-bottom: 1px solid #e2e5ea; background: #fbfcfd; }
+.search-box { position: relative; padding: 8px 10px; }
+.search-box input {
+  width: 100%;
+  padding: 6px 26px 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid #cfd4da;
+  border-radius: 6px;
+  background: #fff;
+}
+.search-box input:focus { outline: 2px solid #93b4f5; outline-offset: -1px; border-color: #93b4f5; }
+.search-clear {
+  position: absolute;
+  right: 18px;
+  top: 12px;
+  color: #98a0aa;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.search-clear:hover { color: #444; }
+.search-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 8px;
+  font-size: 10px;
+  color: #8a8f97;
+}
+.search-meta label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.search-meta .spacer { flex: 1; }
+.search-err { padding: 6px 12px 10px; font-size: 11px; color: #b91c1c; }
+.search-empty { padding: 6px 12px 10px; font-size: 11px; color: #a4aab2; }
+.search-group { border-top: 1px solid #eef0f3; }
+.search-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #333;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-file:hover { background: #eef2f7; }
+.search-repo { margin-left: auto; font-weight: 400; color: #a4aab2; }
+.search-hit {
+  display: flex;
+  gap: 6px;
+  padding: 3px 10px 3px 22px;
+  font-size: 11px;
+  color: #5a616a;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.search-hit:hover { background: #eef2f7; }
+.search-line-no { flex: none; width: 26px; text-align: right; color: #b3b9c0; }
+.search-line { overflow: hidden; text-overflow: ellipsis; }
+.search-line mark { background: #fde68a; color: #1c2733; border-radius: 2px; padding: 0 1px; }

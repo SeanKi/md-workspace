@@ -26,7 +26,7 @@
 | 파일/폴더 CRUD          |  🟡 | MDSyncNote 생성·이름변경·삭제. 이동(드래그)만 남음 |
 | File Watcher        |  🟡 | MD Editor 만. MDSyncNote 미적용   |
 | SQLite 메타데이터        |  ⬜  |                       |
-| FTS 전문 검색           |  ⬜  |                       |
+| 전문 검색               |  ✅  | MDSyncNote, 색인 없이 훑기 (80ms/저장소) |
 | 변경 이력 / Revision    |  🟡 | 자동 commit 됨. 이력 보기·되돌리기 UI 없음 |
 | 서버 저장소 (WebDAV·FTP) |  ⬜  | 인터페이스 자리만 있음          |
 | 동기화 / Yjs           |  ⬜  |                       |
@@ -103,7 +103,7 @@
 | 5   | 이미지 Drag & Drop                                                           |                 ⬜ Tauri 가 OS 레벨 드롭을 가로채므로 별도 처리 필요                |
 | 5   | 이미지 크기 조정 / 압축                                                            |                                 ⬜                                 |
 | 6   | SQLite (repositories / documents / revisions / sync\_state / sync\_queue) |                                 ⬜                                 |
-| 7   | FTS5 전문 검색                                                                |                                 ⬜                                 |
+| 7   | FTS5 전문 검색                                                                |        ✅ 색인 없는 라이브 검색으로 대체 (근거는 Update_History v0.8.0)        |
 | 8   | File Watcher                                                              |                    🟡 MD Editor 만                    |
 | 9   | Revision History (hash, revision, device id, compare, restore)            |                     🟡 git 자동 커밋으로 이력은 쌓인다. 비교·복원 UI 없음                     |
 | 10  | Offline-first 동기화                                                         |                                 ⬜                                 |
@@ -226,7 +226,7 @@ md-workspace/
 |  1  | ~~파일/폴더 CRUD~~        | ✅ v0.7.0 에서 완료. 남은 것은 드래그로 옮기기                       |
 |  2  | ~~File Watcher~~         | ✅ v0.5.0 에서 MD Editor 완료. 다음은 MDSyncNote 적용                |
 |  3  | ~~git local 자동 commit~~  | ✅ v0.4.0 에서 완료. 다음은 이력 보기·되돌리기 UI                    |
-|  4  | SQLite + FTS5           | 문서가 쌓여야 의미. 한국어는 trigram 이중 인덱스 필요                 |
+|  4  | ~~SQLite + FTS5~~        | v0.8.0 에서 색인 없는 검색으로 해결. 300ms 넘어가면 그때 캐시→FTS5        |
 |  5  | 서버 저장소 (WebDAV 등)       | Provider 계층 실제 분리                                  |
 |  6  | 동기화                     | 위가 다 있어야 함                                         |
 |     |                         |                                                    |
