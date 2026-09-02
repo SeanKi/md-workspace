@@ -4,10 +4,10 @@
 Tauri v2 + MDXEditor 로 만들었고, 설치본 없이 exe 하나로 돌아간다.
 Markdown Wysiwyg Editor. 
 
-| 앱 | 무엇 | |
-|---|---|  |
+| 앱 | 무엇 | English |
+|---|---|---|
 | **MD Editor** | 단일 창 에디터. 탭 · 드래그앤드롭 · 탐색기 우클릭 연동 | Simple Editor + Tab + Drag&Drop File Load, Explorer context menu open |
-| **MDSyncNote** | 왼쪽 저장소 트리 + 오른쪽 노트. 자동 저장 · Git 자동 커밋 | Obsidian Type Note - It will contain sync funtion }
+| **MDSyncNote** | 왼쪽 저장소 트리 + 오른쪽 노트. 자동 저장 · Git 자동 커밋 | Obsidian Type Note - It will contain sync function
 
 핵심 원칙은 하나다. **실제 `.md` 파일이 진실의 원천이다.**
 VS Code · Obsidian · GitHub 에서 그대로 열리는 평범한 마크다운만 쓴다.
