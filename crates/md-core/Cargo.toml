@@ -1,6 +1,6 @@
 [package]
 name = "md-core"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 
 [dependencies]
@@ -8,6 +8,7 @@ tauri = { workspace = true }
 base64 = { workspace = true }
 serde = { workspace = true }
 notify = { workspace = true }
+trash = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 # WebView2 의 PrintToPdf 로 PDF 를 만든다 (pdf.rs).

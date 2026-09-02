@@ -13,6 +13,8 @@ tauri-plugin-dialog = "2"
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 notify = "8"
+# 삭제는 영영 지우지 않고 휴지통으로 보낸다
+trash = "5"
 md-core = { path = "crates/md-core" }
 
 [profile.release]

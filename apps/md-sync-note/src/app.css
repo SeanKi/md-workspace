@@ -147,3 +147,78 @@
   border-radius: 3px;
   font-family: ui-monospace, Consolas, monospace;
 }
+
+/* --- 트리 오른쪽 버튼 메뉴 --- */
+.tree-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 160px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #dcdfe4;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .16);
+}
+.tree-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: #24292f;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.tree-menu button:hover { background: #eef2f7; }
+.tree-menu button.danger { color: #b91c1c; }
+.tree-menu button.danger:hover { background: #fdecec; }
+.tree-menu-sep { height: 1px; margin: 4px 2px; background: #e6e8ec; }
+
+/* --- 이름 입력 창 --- */
+.modal-back {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 22, 26, .38);
+  z-index: 400;
+}
+.modal {
+  width: min(420px, calc(100vw - 48px));
+  padding: 18px 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .28);
+}
+.modal-title { font-size: 14px; font-weight: 700; }
+.modal-input {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid #cfd4da;
+  border-radius: 6px;
+}
+.modal-input:focus { outline: 2px solid #93b4f5; outline-offset: -1px; border-color: #93b4f5; }
+.modal-error { margin-top: 8px; font-size: 12px; color: #b91c1c; }
+.modal-buttons { display: flex; gap: 8px; margin-top: 16px; }
+.modal-buttons button {
+  flex: 1;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  background: #f4f5f7;
+  border: 1px solid #dcdfe4;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.modal-buttons button:hover { background: #e9ebef; }
+.modal-buttons button.primary { color: #fff; background: #2563eb; border-color: #2563eb; }
+.modal-buttons button.primary:hover { background: #1d4ed8; }

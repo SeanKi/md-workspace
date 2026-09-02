@@ -107,6 +107,23 @@ export default function App() {
     ))
   }, [])
 
+  /**
+   * 트리에서 이름이 바뀌거나 지워졌을 때. 열어 둔 문서가 그 대상이면 맞춰 준다.
+   * 폴더를 바꾼 경우도 있으므로 경로가 그 아래로 시작하는지까지 본다.
+   */
+  const onPathChanged = useCallback((from, to) => {
+    setDoc((d) => {
+      if (!d) return d
+      const same = d.path === from
+      const inside = d.path.startsWith(from.replace(/[\/]+$/, '') + '/')
+      if (!same && !inside) return d
+      if (to === null) { setStatus('열려 있던 문서가 삭제됐습니다'); return null }
+      const next = same ? to : to + d.path.slice(from.length)
+      setStatus('경로가 바뀌었습니다')
+      return { ...d, path: next }
+    })
+  }, [])
+
   /* ---------- 자동 저장 ---------- */
 
   useEffect(() => {
@@ -147,7 +164,8 @@ export default function App() {
             ? <div className="empty">아직 저장소가 없습니다.<br />“+ 추가”로 폴더를 등록하세요.</div>
             : repos.map((r) => (
                 <RepoTree key={r.id} repo={r} activePath={doc?.path} gitTick={gitTick}
-                          onOpen={openDoc} onRemove={removeRepo} />
+                          onOpen={openDoc} onRemove={removeRepo}
+                          onPathChanged={onPathChanged} />
               ))}
         </div>
       </aside>

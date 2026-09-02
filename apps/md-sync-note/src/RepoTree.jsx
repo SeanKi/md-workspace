@@ -1,20 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { listDir } from './repos.js'
 import { gitStatus, gitInit } from './git.js'
+import useTreeOps from './useTreeOps.js'
+import TreeMenu from './TreeMenu.jsx'
+import NameDialog from './NameDialog.jsx'
 
-function Node({ repo, entry, depth, activePath, onOpen }) {
+function Node({ repo, entry, depth, activePath, onOpen, onMenu, versions }) {
   const [open, setOpen] = useState(false)
   const [kids, setKids] = useState(null)
   const [error, setError] = useState(null)
+  const ver = versions[entry.path] ?? 0
+
+  const load = useCallback(async () => {
+    try { setKids(await listDir(repo, entry.path)); setError(null) }
+    catch (e) { setError(String(e)); setKids([]) }
+  }, [repo, entry.path])
 
   const toggle = useCallback(async () => {
     const next = !open
     setOpen(next)
-    if (next && kids === null) {
-      try { setKids(await listDir(repo, entry.path)) }
-      catch (e) { setError(String(e)); setKids([]) }
-    }
-  }, [open, kids, repo, entry.path])
+    if (next && kids === null) await load()
+  }, [open, kids, load])
+
+  // 이 폴더 안에서 뭔가 만들거나 지웠으면 다시 읽는다. 만든 것이 보이도록 펼친다
+  useEffect(() => {
+    if (ver === 0) return
+    setOpen(true)
+    load()
+  }, [ver])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const pad = { paddingLeft: 8 + depth * 14 }
 
@@ -24,6 +37,7 @@ function Node({ repo, entry, depth, activePath, onOpen }) {
         className={'node file' + (activePath === entry.path ? ' on' : '')}
         style={pad}
         onClick={() => onOpen(entry.path)}
+        onContextMenu={(e) => onMenu(e, entry)}
         title={entry.path}
       >
         <span className="ico">📄</span>{entry.name}
@@ -33,7 +47,8 @@ function Node({ repo, entry, depth, activePath, onOpen }) {
 
   return (
     <>
-      <div className="node dir" style={pad} onClick={toggle} title={entry.path}>
+      <div className="node dir" style={pad} onClick={toggle}
+           onContextMenu={(e) => onMenu(e, entry)} title={entry.path}>
         <span className="caret">{open ? '▾' : '▸'}</span>
         <span className="ico">{open ? '📂' : '📁'}</span>{entry.name}
       </div>
@@ -46,7 +61,8 @@ function Node({ repo, entry, depth, activePath, onOpen }) {
               ? <div className="node muted" style={{ paddingLeft: 8 + (depth + 1) * 14 }}>(비어 있음)</div>
               : kids.map((k) => (
                   <Node key={k.path} repo={repo} entry={k} depth={depth + 1}
-                        activePath={activePath} onOpen={onOpen} />
+                        activePath={activePath} onOpen={onOpen}
+                        onMenu={onMenu} versions={versions} />
                 ))
       )}
     </>
@@ -100,21 +116,28 @@ function GitLine({ repo, tick }) {
   )
 }
 
-export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick }) {
+export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, onPathChanged }) {
   const [open, setOpen] = useState(true)
   const [roots, setRoots] = useState(null)
   const [error, setError] = useState(null)
+  const ops = useTreeOps({ onOpen, onPathChanged })
+  const rootVer = ops.versions[repo.path] ?? 0
 
-  useEffect(() => {
-    if (!open || roots !== null) return
+  const loadRoots = useCallback(() => {
     listDir(repo, repo.path)
-      .then(setRoots)
+      .then((r) => { setRoots(r); setError(null) })
       .catch((e) => { setError(String(e)); setRoots([]) })
-  }, [open, roots, repo])
+  }, [repo])
+
+  useEffect(() => { if (open) loadRoots() }, [open, rootVer, loadRoots])
+
+  // 저장소 뿌리에서는 만들기만 할 수 있다 — 저장소 자체를 지우는 건 "제거(×)" 다
+  const rootTarget = { path: repo.path, name: repo.name, is_dir: true, isRoot: true }
 
   return (
     <div className="repo">
-      <div className="repo-head" onClick={() => setOpen((v) => !v)}>
+      <div className="repo-head" onClick={() => setOpen((v) => !v)}
+           onContextMenu={(e) => ops.openMenu(e, rootTarget)}>
         <span className="caret">{open ? '▾' : '▸'}</span>
         <span className="repo-name">{repo.name}</span>
         <span className="spacer" />
@@ -123,13 +146,31 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick }
       </div>
       <div className="repo-path" title={repo.path}>{repo.path}</div>
       <GitLine repo={repo} tick={gitTick} />
+      {ops.notice && <div className="node err">{ops.notice}</div>}
       {open && (
         error ? <div className="node err">{error}</div>
         : roots === null ? <div className="node muted">읽는 중…</div>
+        : roots.length === 0 ? <div className="node muted">(비어 있음) — 오른쪽 버튼으로 새 노트</div>
         : roots.map((e) => (
             <Node key={e.path} repo={repo} entry={e} depth={0}
-                  activePath={activePath} onOpen={onOpen} />
+                  activePath={activePath} onOpen={onOpen}
+                  onMenu={ops.openMenu} versions={ops.versions} />
           ))
+      )}
+
+      {ops.menu && (
+        <TreeMenu x={ops.menu.x} y={ops.menu.y}
+                  items={ops.menuItems(ops.menu.target)} onClose={ops.closeMenu} />
+      )}
+      {ops.dialog && (
+        <NameDialog
+          title={ops.dialogTitle}
+          value={ops.dialog.value}
+          okLabel={ops.dialog.kind === 'rename' ? '이름 바꾸기' : '만들기'}
+          check={ops.checkDialogName}
+          onOk={ops.runDialog}
+          onCancel={ops.cancelDialog}
+        />
       )}
     </div>
   )
