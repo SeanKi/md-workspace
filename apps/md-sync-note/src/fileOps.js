@@ -7,6 +7,12 @@ const BAD_NAME = /[\\/:*?"<>|]/
 export const dirOf = (p) => p.replace(/[\\/][^\\/]*$/, '')
 export const join = (dir, name) => `${dir.replace(/[\\/]+$/, '')}/${name}`
 
+/** 경로 비교는 Windows 를 생각해 구분자와 대소문자를 무시한다. */
+const norm = (p) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+export const samePath = (a, b) => norm(a) === norm(b)
+/** child 가 parent 아래에 있는가 (자기 자신은 아니다) */
+export const isInside = (child, parent) => norm(child).startsWith(norm(parent) + '/')
+
 /**
  * 이름을 다듬고 문제가 있으면 이유를 돌려준다.
  * @returns {{ name?: string, error?: string }}

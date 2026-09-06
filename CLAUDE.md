@@ -36,6 +36,7 @@ npm run build -w md-editor   :: 프론트엔드만 빌드 (빠른 확인용)
 cargo check --workspace      :: Rust 전체 확인
 build-portable.bat           :: portable exe 두 개만 (설치본 없음, 빠름)
 build-all.bat                :: 설치본(NSIS) + portable exe
+deploy.bat [폴더]            :: 빌드한 exe 두 개를 쓰는 자리에 복사 (기본 C:\utility\Markdown)
 ```
 
 첫 실행은 Rust 컴파일로 5~15분. 이후는 수 초.
@@ -133,6 +134,44 @@ GFM 표는 셀 안에 개행을 담지 못한다. lexical 기본 줄바꿈 노�
 파일을 날리는 사고가 여기서 난다. `md-core::commands` 의 만들기·이름 바꾸기는 모두
 `must_not_exist` 를 거치고, 삭제는 `trash` 로 **휴지통**에 보낸다.
 
+### MDXEditor 는 자리표시자에도 `contentEditableClassName` 을 붙인다
+
+`.prose` 에 흰 배경·테두리·그림자를 주면 **자리표시자에도 그대로 걸려** 빈 문서에서
+종이 카드가 두 겹으로 보인다. 자리표시자는 `position:absolute` 라 자리까지 어긋난다.
+`editor.css` 의 `.prose[class*="_placeholder_"]` 규칙이 그것을 걷어낸다.
+클래스 이름의 해시(`_er3ed_`)는 버전마다 바뀌므로 부분 일치로 잡는다.
+
+### 창 나누기 — 편집 중인 화면에는 `setMarkdown` 을 하지 않는다
+
+`packages/editor-core/SplitEditor.jsx`. 두 화면은 각자 진짜 MDXEditor 인스턴스다.
+내용은 **"방금 고친 쪽 → 놀고 있는 쪽" 한 방향으로만** 옮겨 담는다. 편집 중인 쪽에
+`setMarkdown` 을 하면 커서와 되돌리기 이력이 통째로 날아간다.
+옮겨 담기 전에 스크롤 위치를 적어 두고 다음 프레임에 되돌린다.
+
+### "누르고 있다가 끌기" 는 HTML5 드래그로 못 만든다
+
+브라우저는 **누르기 전에** `draggable` 이 서 있어야 끌기를 시작한다. 도중에 켜도
+그 손짓은 이어지지 않는다. 그래서 트리의 3초 길게 누르기는 포인터 이벤트로 직접
+만들었다 (`useTreeDrag.js`). 놓을 자리는 `elementFromPoint` + `data-drop` 으로 찾는다.
+
+끌기가 끝난 뒤의 click 한 번은 먹어야 한다(안 그러면 옮기자마자 문서가 열린다).
+불리언 깃발로 하면 안 된다 — **누른 줄과 놓은 줄이 다르면 click 이 아예 오지 않아서**
+깃발이 남아 다음 클릭을 잡아먹는다. 시각(300ms)으로 재야 스스로 풀린다.
+
+### 트리에서 한 파일 조작도 커밋으로 남긴다 — 저장보다 **먼저**
+
+`usePendingCommits.js`. 이름 바꾸기·옮기기·삭제를 모아 뒀다가 자동 저장 박자에
+맞춰 한 커밋으로 남긴다. 순서가 중요하다 — 파일 조작을 먼저 커밋해야 "무엇이 어떻게
+바뀌었는지" 가 문서 저장 커밋에 엉뚱한 이름으로 섞이지 않는다.
+자동 저장을 꺼 뒀어도(0) 파일 조작만은 60초마다 커밋한다.
+
+### dev 서버에서는 React 를 한 벌로 못 박아야 한다
+
+공유 패키지를 `optimizeDeps.exclude` 해 두면 vite 가 그 안의 `@lexical/react` 를
+따로 묶으면서 **React 를 한 벌 더** 끌어들인다. "Invalid hook call" 로 dev 화면이
+통째로 죽는다(빌드는 멀쩡하다). 두 앱의 `vite.config.js` 에
+`resolve: { dedupe: ['react', 'react-dom'] }` 가 그 못이다.
+
 ### 워크스페이스 링크 확인은 폴더 유무가 아니라 링크 유무로
 
 `node_modules` 가 있어도 `node_modules/@md/editor-core` 가 없으면 vite 가 죽는다.
@@ -175,6 +214,7 @@ MDXEditor 툴바 버튼은 `title` 이 아니라 **`aria-label`** 로 찾아야 
 
 ## 지금 상태
 
-Phase 1 의 절반을 조금 넘겼다 (v0.4.0 — 상단 드롭존 · Windows 파일 연결 ·
-MDSyncNote git init/자동 커밋). 다음 우선순위는 여전히 **파일/폴더 CRUD**
-(트리가 읽기 전용이라 실사용 불가). 자세한 것은 `docs/Implementation_Status.md` 마지막 절.
+Phase 1 의 절반을 넘겼다 (v0.9.0 — 창 나누기 · 취소선 · 트리 파일 CRUD 완결
+(F2 이름 바꾸기 · 3초 누르고 끌어서 옮기기) · 그 조작을 커밋으로 남기기).
+다음 우선순위는 **MDSyncNote 에 File Watcher 붙이기** (MD Editor 는 v0.5.0 에서 끝났다).
+자세한 것은 `docs/Implementation_Status.md` 마지막 절.

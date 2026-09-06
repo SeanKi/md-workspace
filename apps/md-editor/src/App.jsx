@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { confirm } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings } from '@md/editor-core'
+import { SplitEditor, isTauri, loadSettings, saveSettings } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -172,14 +172,13 @@ export default function App() {
         <SettingsBar settings={settings} onChange={updateSettings} path={active?.path} />
       )}
 
-      <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
-        <Editor
-          key={active.id}
-          markdown={active.content}
-          onChange={onEditorChange}
-          ctxRef={ctxRef}
-        />
-      </div>
+      <SplitEditor
+        key={active.id}
+        markdown={active.content}
+        onChange={onEditorChange}
+        ctxRef={ctxRef}
+        wide={settings.wideLayout}
+      />
 
       {dropWhere && (
         <div className={'drop-hint' + (dropWhere === 'out' ? ' warn' : '')}>

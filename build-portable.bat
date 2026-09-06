@@ -30,15 +30,15 @@ if not exist "node_modules\@md\editor-core\package.json" (
   call npm install >> "%LOG%" 2>&1
 )
 if not exist "node_modules\@md\editor-core\package.json" (
-  echo   [X] npm install 실패. 로그 마지막 30줄:
+  echo   [X] npm install 실패. 로그 마지막 30 줄:
   powershell -NoProfile -Command "Get-Content -Tail 30 '%LOG%'"
   pause & exit /b 1
 )
 
-echo [2/3] MD Editor 빌드... (처음이면 5~15분)
+echo [2/3] MD Editor 빌드... (처음이면 5~15 분)
 call npm run tauri -w md-editor -- build --no-bundle >> "%LOG%" 2>&1
 if errorlevel 1 (
-  echo   [X] 실패. 로그 마지막 30줄:
+  echo   [X] 실패. 로그 마지막 30 줄:
   powershell -NoProfile -Command "Get-Content -Tail 30 '%LOG%'"
   pause & exit /b 1
 )
@@ -46,7 +46,7 @@ if errorlevel 1 (
 echo [3/3] MDSyncNote 빌드...
 call npm run tauri -w md-sync-note -- build --no-bundle >> "%LOG%" 2>&1
 if errorlevel 1 (
-  echo   [X] 실패. 로그 마지막 30줄:
+  echo   [X] 실패. 로그 마지막 30 줄:
   powershell -NoProfile -Command "Get-Content -Tail 30 '%LOG%'"
   pause & exit /b 1
 )

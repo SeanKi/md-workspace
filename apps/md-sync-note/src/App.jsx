@@ -1,15 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { Editor, isTauri, loadSettings, saveSettings, normalizeImageDir, normalizeForEditor, describeFixes } from '@md/editor-core'
+import { SplitEditor, isTauri, loadSettings, saveSettings, normalizeForEditor, describeFixes } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import SearchPanel from './SearchPanel.jsx'
+import SideSplit, { SIDE_DEFAULT } from './SideSplit.jsx'
+import SettingsBar from './SettingsBar.jsx'
+import usePendingCommits from './usePendingCommits.js'
 import { revealText } from './revealText.js'
 import { loadRepos, saveRepos, baseName, repoOf } from './repos.js'
 import { gitCommit, commitMessage } from './git.js'
 
 const SETTINGS_KEY = 'md-sync-note-settings'
-const DEFAULTS = { imageDir: 'images', autoSaveSec: 60, autoCommit: true, wideLayout: false }
+const DEFAULTS = {
+  imageDir: 'images', autoSaveSec: 60, autoCommit: true, wideLayout: false,
+  sideWidth: SIDE_DEFAULT,
+}
+/** 자동 저장을 꺼 뒀어도 트리에서 한 파일 조작은 이 간격으로 커밋한다(초) */
+const OPS_FALLBACK_SEC = 60
 
 let seq = 0
 
@@ -31,6 +39,9 @@ export default function App() {
   // 커밋에 필요한 최신 설정·저장소 목록은 ref 로 본다.
   const cfgRef = useRef({ settings, repos })
   cfgRef.current = { settings, repos }
+
+  // 트리에서 한 파일 조작을 모았다가 자동 저장 박자에 맞춰 커밋한다
+  const { note: noteOp, flush: flushOps } = usePendingCommits({ cfgRef, setStatus, setGitTick })
 
   /* ---------- 저장소 ---------- */
 
@@ -111,11 +122,19 @@ export default function App() {
     ))
   }, [])
 
+  /** 저장 단추와 Ctrl+S. 파일 조작을 먼저 그 내용대로 커밋하고 문서를 저장한다 */
+  async function saveNow() {
+    await flushOps()
+    await persist(docRef.current)
+  }
+
   /**
-   * 트리에서 이름이 바뀌거나 지워졌을 때. 열어 둔 문서가 그 대상이면 맞춰 준다.
+   * 트리에서 이름이 바뀌거나 옮겨지거나 지워졌을 때.
+   * 열어 둔 문서가 그 대상이면 경로를 맞춰 주고, 저장소에는 커밋할 거리로 적어 둔다.
    * 폴더를 바꾼 경우도 있으므로 경로가 그 아래로 시작하는지까지 본다.
    */
-  const onPathChanged = useCallback((from, to) => {
+  const onPathChanged = useCallback((from, to, kind) => {
+    noteOp(kind, from, to)
     setDoc((d) => {
       if (!d) return d
       const same = d.path === from
@@ -126,20 +145,25 @@ export default function App() {
       setStatus('경로가 바뀌었습니다')
       return { ...d, path: next }
     })
-  }, [])
+  }, [noteOp])
 
   /* ---------- 자동 저장 ---------- */
 
   useEffect(() => {
     const sec = Number(settings.autoSaveSec) || 0
-    if (sec <= 0) return
-    const t = setInterval(() => { persist(docRef.current) }, sec * 1000)
+    // 자동 저장을 꺼 뒀어도 트리에서 한 이름 바꾸기·옮기기는 남겨야 한다
+    const every = sec > 0 ? sec : OPS_FALLBACK_SEC
+    const t = setInterval(async () => {
+      // 파일 조작을 먼저 커밋해야 "무엇이 어떻게 바뀌었는지" 가 저장 커밋에 섞이지 않는다
+      await flushOps()
+      if (sec > 0) await persist(docRef.current)
+    }, every * 1000)
     return () => clearInterval(t)
   }, [settings.autoSaveSec])
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); persist(docRef.current) }
+      if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveNow() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -157,7 +181,7 @@ export default function App() {
 
   return (
     <div className="shell">
-      <aside className="sidebar">
+      <aside className="sidebar" style={{ width: settings.sideWidth ?? SIDE_DEFAULT }}>
         <div className="side-head">
           <span>저장소</span>
           <span className="spacer" />
@@ -175,6 +199,8 @@ export default function App() {
         </div>
       </aside>
 
+      <SideSplit onChange={(w) => update({ sideWidth: w })} />
+
       <main className="main">
         <div className="titlebar">
           <span className="name">{doc ? baseName(doc.path) : '문서를 선택하세요'}</span>
@@ -182,47 +208,22 @@ export default function App() {
           <span className="path">{doc?.path ?? ''}</span>
           <span className="spacer" />
           <span className="status">{status}</span>
-          <button onClick={() => persist(docRef.current)} title="Ctrl+S">저장</button>
+          <button onClick={saveNow} title="Ctrl+S">저장</button>
           <button onClick={() => setShowSettings((v) => !v)} title="설정">⚙</button>
         </div>
 
         {showSettings && (
-          <div className="settings">
-            <label>
-              이미지 저장 폴더
-              <input value={settings.imageDir} placeholder="images"
-                     onChange={(e) => update({ imageDir: e.target.value })} />
-            </label>
-            <label>
-              자동 저장(초)
-              <input type="number" min="0" step="10" style={{ width: 80 }}
-                     value={settings.autoSaveSec}
-                     onChange={(e) => update({ autoSaveSec: Number(e.target.value) })} />
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={!!settings.autoCommit}
-                     onChange={(e) => update({ autoCommit: e.target.checked })} />
-              저장할 때 git commit
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={!!settings.wideLayout}
-                     onChange={(e) => update({ wideLayout: e.target.checked })} />
-              본문 전체 폭
-            </label>
-            <span className="hint">
-              이미지: 비우거나 <code>.</code> 이면 문서와 같은 폴더 (현재
-              <b> {normalizeImageDir(settings.imageDir) || '문서와 같은 폴더'}</b>).
-              자동 저장 0 이면 사용 안 함.
-              git 커밋은 저장소 폴더가 git 저장소일 때만, 변경이 있을 때만 일어납니다.
-            </span>
-          </div>
+          <SettingsBar settings={settings} onChange={update} opsFallbackSec={OPS_FALLBACK_SEC} />
         )}
 
-        <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
-          {doc
-            ? <Editor key={doc.path} markdown={doc.content} onChange={onChange} ctxRef={ctxRef} />
-            : <div className="placeholder">왼쪽 트리에서 문서를 선택하면 여기에 열립니다.</div>}
-        </div>
+        {doc
+          ? <SplitEditor key={doc.path} markdown={doc.content} onChange={onChange}
+                         ctxRef={ctxRef} wide={settings.wideLayout} />
+          : (
+            <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
+              <div className="placeholder">왼쪽 트리에서 문서를 선택하면 여기에 열립니다.</div>
+            </div>
+          )}
       </main>
     </div>
   )

@@ -106,6 +106,8 @@ run-md-sync-note.bat         :: 실행 (또는 npm run sync-note)
 
 build-portable.bat           :: 포터블 exe 두 개 (설치본 없이, 빠름)
 build-all.bat                :: 설치 프로그램(NSIS) + 포터블 exe
+deploy.bat [폴더]            :: 빌드한 exe 두 개를 쓰는 자리에 복사
+                             :: 인자를 생략하면 C:\utility\Markdown
 ```
 
 결과는 `release-out/` 에 모인다. 첫 빌드는 Rust 컴파일로 5~15분, 이후는 수 초.

@@ -42,7 +42,9 @@ export async function revealText(candidates, { tries = 25, wait = 120 } = {}) {
   if (wanted.length === 0) return false
 
   for (let t = 0; t < tries; t += 1) {
-    const root = document.querySelector('.prose')
+    // 자리표시자에도 .prose 가 붙어 있다. 진짜 본문만 골라야 한다.
+    // 화면을 나눠 봐도 위쪽 화면이 먼저 나오므로 그대로 첫 번째를 쓴다.
+    const root = document.querySelector('.prose[contenteditable="true"]')
     if (root) {
       for (const c of wanted) {
         const hit = findIn(root, c)

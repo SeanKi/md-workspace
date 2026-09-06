@@ -74,6 +74,19 @@ body {
 }
 .prose > :first-child { margin-top: 0; }
 
+/* MDXEditor 는 **자리표시자에도** contentEditableClassName 을 그대로 붙인다.
+   그래서 빈 문서에서는 종이 카드가 두 겹으로 겹쳐 보인다.
+   자리표시자에서는 종이 흉내를 걷어내고, left/right 0 으로 두어
+   max-width + margin:auto 가 본문과 똑같은 자리에 놓이게 한다. */
+.prose[class*="_placeholder_"] {
+  display: block;
+  left: 0;
+  right: 0;
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 /* 전체 폭 모드 — 종이 흉내를 걷어내고 화면을 꽉 채운다 */
 .editor-wrap.wide { background: #fff; }
 .editor-wrap.wide .prose {
@@ -84,6 +97,44 @@ body {
   border-radius: 0;
   box-shadow: none;
 }
+
+/* ===== 창 나누기 (Word · Visual Studio 식) =====
+   본문 위의 손잡이를 끌어내리면 내린 자리에서 위·아래 두 화면으로 나뉜다.
+   두 화면 모두 진짜 편집기라 스크롤 위치가 서로 다르다 — 그게 나누는 이유다. */
+.split-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* 나눈 상태에서는 flexGrow 를 인라인으로 준다. 기본값은 반반. */
+.split-shell > .editor-wrap { flex: 1 1 0; min-height: 0; }
+
+/* 나누기 전 — 본문 맨 위의 얇은 손잡이. Word 의 분할 상자 자리와 같다 */
+.split-grab,
+.split-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+  background: #eef0f3;
+  border-bottom: 1px solid #dcdfe4;
+  user-select: none;
+}
+.split-grab { height: 9px; }
+.split-bar { height: 11px; border-top: 1px solid #dcdfe4; }
+.split-grab:hover, .split-bar:hover { background: #dbe6fb; }
+.split-grab > span, .split-bar > span {
+  width: 44px;
+  height: 3px;
+  border-radius: 2px;
+  background: #b6bdc7;
+}
+.split-grab:hover > span, .split-bar:hover > span { background: #2563eb; }
+/* 끄는 동안에는 본문이 선택되지 않게 */
+.split-shell.dragging { cursor: row-resize; }
+.split-shell.dragging * { user-select: none !important; }
 
 /* --- 제목 --- */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
@@ -264,8 +315,9 @@ body {
     background: #fff !important;
   }
 
-  /* 화면에서만 쓰는 것들 */
-  .topzone, .titlebar, .tabbar, .settings, .sidebar,
+  /* 화면에서만 쓰는 것들. 나눠 보고 있어도 인쇄물은 한 벌이다 */
+  .split-grab, .split-bar, .pane-bottom,
+  .topzone, .titlebar, .tabbar, .settings, .sidebar, .side-split,
   .mdxeditor-toolbar, .drop-hint, .modal-back { display: none !important; }
 
   /* 표의 행·열 손잡이와 편집용 버튼 */

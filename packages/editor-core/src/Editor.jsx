@@ -5,7 +5,8 @@ import {
   linkPlugin, linkDialogPlugin, imagePlugin, tablePlugin,
   markdownShortcutPlugin, codeBlockPlugin, codeMirrorPlugin,
   diffSourcePlugin, toolbarPlugin,
-  UndoRedo, BoldItalicUnderlineToggles, BlockTypeSelect, ListsToggle,
+  UndoRedo, BoldItalicUnderlineToggles, StrikeThroughSupSubToggles,
+  BlockTypeSelect, ListsToggle,
   CreateLink, InsertTable, InsertThematicBreak, InsertCodeBlock, InsertImage,
   DiffSourceToggleWrapper, Separator,
 } from '@mdxeditor/editor'
@@ -13,7 +14,7 @@ import { mermaidDescriptor, InsertMermaid } from './MermaidBlock.jsx'
 import { tableCellBreakPlugin } from './tableCellBreak.jsx'
 import { uploadImage, previewImage } from './images.js'
 
-export default function Editor({ markdown, onChange, ctxRef }) {
+export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
   // ctxRef 는 항상 최신 { path, imageDir } 을 들고 있으므로
   // plugins 배열은 한 번만 만들어도 된다.
   const plugins = useMemo(() => [
@@ -41,6 +42,9 @@ export default function Editor({ markdown, onChange, ctxRef }) {
           <UndoRedo />
           <Separator />
           <BoldItalicUnderlineToggles />
+          {/* 취소선만 쓴다. 위첨자·아래첨자는 마크다운이 아니라 <sup>·<sub> 태그로 나가서
+              다른 도구에서 그대로 보인다 */}
+          <StrikeThroughSupSubToggles options={['Strikethrough']} />
           <Separator />
           <BlockTypeSelect />
           <ListsToggle />
@@ -58,6 +62,7 @@ export default function Editor({ markdown, onChange, ctxRef }) {
 
   return (
     <MDXEditor
+      ref={editorRef}
       markdown={markdown}
       plugins={plugins}
       onChange={onChange}

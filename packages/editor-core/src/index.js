@@ -1,4 +1,5 @@
 export { default as Editor } from './Editor.jsx'
+export { default as SplitEditor } from './SplitEditor.jsx'
 export { mermaidDescriptor, InsertMermaid } from './MermaidBlock.jsx'
 export { uploadImage, previewImage, normalizeImageDir, dirOf } from './images.js'
 export { loadSettings, saveSettings, DEFAULT_SETTINGS } from './settings.js'

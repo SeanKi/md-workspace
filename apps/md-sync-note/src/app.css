@@ -6,12 +6,23 @@
 .sidebar {
   display: flex;
   flex-direction: column;
+  flex: none;                 /* 폭은 나누기 막대가 정한다 */
   width: 280px;
-  min-width: 180px;
-  border-right: 1px solid #dcdfe4;
+  min-width: 0;
   background: #f7f8fa;
   user-select: none;
 }
+
+/* --- 트리와 본문 사이의 나누기 막대 --- */
+.side-split {
+  flex: none;
+  width: 5px;
+  cursor: col-resize;
+  background: #dcdfe4;
+}
+.side-split:hover { background: #2563eb; }
+/* 끄는 동안 본문 위를 지나가도 커서가 바뀌지 않게 */
+body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
 .side-head {
   display: flex;
   align-items: center;
@@ -105,6 +116,41 @@
 .node.muted { color: #a4aab2; }
 .node.muted:hover, .node.err:hover { background: transparent; }
 .node.err { color: #b91c1c; white-space: normal; }
+/* 포커스가 보여야 F2 가 어디에 걸리는지 안다 */
+.node:focus-visible { outline: 2px solid #93b4f5; outline-offset: -2px; }
+
+/* --- 끌어서 옮기기 (3초 누르고 있어야 시작된다) --- */
+/* 누르고 있는 동안 밑줄이 3초에 걸쳐 차오른다 — 언제 끌 수 있는지 알려준다 */
+.node.holding { position: relative; background: #e6eaf0; }
+.node.holding::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: 0; height: 2px;
+  background: #2563eb;
+  animation: hold-arm 3s linear forwards;
+}
+@keyframes hold-arm { from { width: 0 } to { width: 100% } }
+.node.dragging { opacity: .45; }
+.node.drop-over, .repo-head.drop-over {
+  background: #dbe6fb;
+  outline: 2px dashed #2563eb;
+  outline-offset: -2px;
+}
+.tree-ghost {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(37, 99, 235, .94);
+  border-radius: 6px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.tree-ghost span { opacity: .8; }
 
 /* --- 오른쪽 --- */
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
