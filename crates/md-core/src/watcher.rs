@@ -105,12 +105,22 @@ fn changed(st: &mut Watched, k: &str) -> bool {
     true
 }
 
-#[tauri::command]
+// 이 둘은 **빠를 것 같지만 빠르지 않다.** 실제 기록에 남은 것 —
+//
+//     멎음  17716ms · 직전 호출 watch_file (17.3초 전)
+//     느림  watch_file 17437ms — ...\docs.CounterSpec_X-Ray_Ver2.4.2.md
+//
+// 파일을 통째로 읽어 해시하고(`fs::read`), 폴더에 감시를 건다. 네트워크·동기화 폴더면
+// 둘 다 몇 초씩 걸린다. 메인 스레드에 두면 그동안 창이 통째로 멎는다.
+#[tauri::command(async)]
 pub fn watch_file(app: AppHandle, path: String) -> Result<(), String> {
     let dir = Path::new(&path)
         .parent()
         .ok_or("상위 폴더를 찾을 수 없습니다")?
         .to_path_buf();
+
+    // 파일 읽기는 자물쇠 **밖에서**. 느린 일을 붙잡고 있으면 다른 감시도 함께 막힌다
+    let hash = std::fs::read(&path).map(|b| hash_bytes(&b)).unwrap_or(0);
 
     let mut st = state().lock().map_err(|e| e.to_string())?;
 
@@ -139,7 +149,6 @@ pub fn watch_file(app: AppHandle, path: String) -> Result<(), String> {
     if st.files.contains_key(&k) {
         return Ok(());
     }
-    let hash = std::fs::read(&path).map(|b| hash_bytes(&b)).unwrap_or(0);
     st.files.insert(k.clone(), hash);
     st.original.insert(k, path.clone());
 
@@ -158,7 +167,7 @@ pub fn watch_file(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn unwatch_file(path: String) -> Result<(), String> {
     let mut st = state().lock().map_err(|e| e.to_string())?;
     let k = key(&path);

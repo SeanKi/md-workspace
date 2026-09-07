@@ -89,7 +89,8 @@ fn sweep(d: &std::path::Path) {
 }
 
 /// 기록이 쌓이는 폴더. 화면에서 "여기를 보세요" 라고 말해 주려고 있다.
-#[tauri::command]
+/// 처음 부를 때 폴더를 만들므로 이것도 스레드 풀로 보낸다.
+#[tauri::command(async)]
 pub fn log_dir() -> Result<String, String> {
     Ok(dir()?.to_string_lossy().to_string())
 }
