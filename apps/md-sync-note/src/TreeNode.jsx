@@ -33,10 +33,10 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
 
   // 들여쓰기 — 폴더는 화살표를 달고 파일은 안 단다. 그대로 두면 같은 층의
   // 파일이 폴더보다 **왼쪽**으로 나와 층이 어긋나 보인다.
-  // 파일에 화살표 자리(CARET)를 그대로 주고 조금(NUDGE) 더 밀어 파일이 오른쪽에 오게 한다.
+  // 파일에 화살표 자리(CARET)만큼을 주면 아이콘이 형제 폴더와 **정확히 같은 자리**에 선다.
   const STEP = 16      // 한 층
   const CARET = 14     // 화살표 칸 + 사이 여백
-  const NUDGE = 6      // 파일이 폴더보다 이만큼 오른쪽
+  const NUDGE = 0      // 형제 폴더와 아이콘을 맞춘다 (더 밀면 층이 어긋나 보인다)
   const indent = (d, isDir) => ({ paddingLeft: 8 + d * STEP + (isDir ? 0 : CARET + NUDGE) })
 
   const pad = indent(depth, entry.is_dir)
