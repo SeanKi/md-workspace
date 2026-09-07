@@ -16,6 +16,8 @@ import { gitCommit, commitMessage } from './git.js'
 const DEFAULTS = {
   imageDir: 'images', autoSaveSec: 60, autoCommit: true, wideLayout: false,
   sideWidth: SIDE_DEFAULT,
+  // MD Notepad 실행 파일. 비우면 Rust 가 알아서 찾는다 (`open_with.rs`)
+  editorPath: '',
 }
 /** 자동 저장을 꺼 뒀어도 트리에서 한 파일 조작은 이 간격으로 커밋한다(초) */
 const OPS_FALLBACK_SEC = 60
@@ -241,7 +243,9 @@ export default function App() {
             : repos.map((r) => (
                 <RepoTree key={r.id} repo={r} activePath={doc?.path} gitTick={gitTick}
                           onOpen={openDoc} onRemove={removeRepo}
-                          onPathChanged={onPathChanged} />
+                          onPathChanged={onPathChanged}
+                          editorPath={settings.editorPath}
+                          setEditorPath={(p) => update({ editorPath: p })} />
               ))}
         </div>
       </aside>

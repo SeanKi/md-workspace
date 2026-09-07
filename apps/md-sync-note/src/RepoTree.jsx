@@ -7,11 +7,11 @@ import GitLine from './GitLine.jsx'
 import TreeMenu from './TreeMenu.jsx'
 import NameDialog from './NameDialog.jsx'
 
-export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, onPathChanged }) {
+export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, onPathChanged, editorPath, setEditorPath }) {
   const [open, setOpen] = useState(true)
   const [roots, setRoots] = useState(null)
   const [error, setError] = useState(null)
-  const ops = useTreeOps({ onOpen, onPathChanged })
+  const ops = useTreeOps({ onOpen, onPathChanged, editorPath, setEditorPath })
   const drag = useTreeDrag({ onDrop: ops.move })
   const rootVer = ops.versions[repo.path] ?? 0
 

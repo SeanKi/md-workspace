@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { confirm } from '@tauri-apps/plugin-dialog'
 import { isTauri } from '@md/editor-core'
 import {
   checkName, createDir, createNote, deletePath, dirOf, isInside, join, renamePath, samePath,
 } from './fileOps.js'
-import { copyText, hasMdEditor, openInMdEditor } from './shell.js'
+import { copyText, openInMdEditor, pickMdNotepad } from './shell.js'
 
 /**
  * 트리에서 만들고 · 이름 바꾸고 · 옮기고 · 지우는 동작.
@@ -15,15 +15,11 @@ import { copyText, hasMdEditor, openInMdEditor } from './shell.js'
  * @param onPathChanged (옛경로, 새경로|null, 종류) — 열려 있는 문서가 영향을 받을 때와
  *        저장소에 커밋으로 남길 일이 생겼을 때 알린다. 종류는 rename · move · delete.
  */
-export default function useTreeOps({ onOpen, onPathChanged }) {
+export default function useTreeOps({ onOpen, onPathChanged, editorPath, setEditorPath }) {
   const [versions, setVersions] = useState({})
   const [menu, setMenu] = useState(null)      // { x, y, target }
   const [dialog, setDialog] = useState(null)  // { kind, parent|target, value }
   const [notice, setNotice] = useState(null)   // { text, ok }
-  const [editorHere, setEditorHere] = useState(false)
-
-  // MD Notepad 가 옆에 없으면 메뉴에 항목을 내지 않는다 (눌러도 실패할 뿐이다)
-  useEffect(() => { hasMdEditor().then(setEditorHere).catch(() => setEditorHere(false)) }, [])
 
   const refresh = useCallback((path) => {
     setVersions((v) => ({ ...v, [path]: (v[path] ?? 0) + 1 }))
@@ -89,12 +85,30 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
     } catch (e) { fail(e) }
   }, [refresh, onPathChanged, fail])
 
+  /**
+   * MD Notepad 로 넘긴다.
+   *
+   * 메뉴 항목은 **늘 보인다.** 예전에는 실행 파일이 옆에 없으면 항목을 감췄는데,
+   * 그러면 "왜 없지?" 로 끝나고 사용자가 할 수 있는 일이 없었다. 지금은 못 찾으면
+   * 직접 고르게 하고 그 경로를 설정(INI)에 적어 둔다 — 다음부터는 바로 열린다.
+   */
   const openElsewhere = useCallback(async (t) => {
     try {
-      await openInMdEditor(t.path)
+      await openInMdEditor(t.path, editorPath)
+      say(`MD Notepad 로 열었습니다 — ${t.name}`, true)
+      return
+    } catch (e) {
+      if (!String(e).includes('찾지 못했습니다')) { fail(e); return }
+    }
+    // 못 찾았다 — 한 번 고르게 하고 기억한다
+    try {
+      const picked = await pickMdNotepad()
+      if (!picked) { fail('MD Notepad 실행 파일을 찾지 못했습니다.'); return }
+      setEditorPath?.(picked)
+      await openInMdEditor(t.path, picked)
       say(`MD Notepad 로 열었습니다 — ${t.name}`, true)
     } catch (e) { fail(e) }
-  }, [say, fail])
+  }, [say, fail, editorPath, setEditorPath])
 
   const copyPath = useCallback(async (t) => {
     try {
@@ -112,7 +126,7 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
     }
 
     if (items.length) items.push({ sep: true })
-    if (!t.is_dir && editorHere) items.push({ label: 'MD Notepad 로 열기', run: () => openElsewhere(t) })
+    if (!t.is_dir) items.push({ label: 'MD Notepad 로 열기', run: () => openElsewhere(t) })
     items.push({ label: '경로 복사', run: () => copyPath(t) })
 
     if (!t.isRoot) {
@@ -121,7 +135,7 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
       items.push({ label: '삭제 (휴지통으로)', danger: true, run: () => remove(t) })
     }
     return items
-  }, [remove, startRename, editorHere, openElsewhere, copyPath])
+  }, [remove, startRename, openElsewhere, copyPath])
 
   const dialogTitle = dialog && (
     dialog.kind === 'note' ? '새 노트'

@@ -21,7 +21,7 @@ pub fn run() {
             git::git_init,
             git::git_commit,
             open_with::open_in_md_editor,
-            open_with::has_md_editor,
+            open_with::md_notepad_path,
             config::config_load,
             config::config_save,
             config::config_path,

@@ -15,3 +15,7 @@ tauri = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 md-core = { workspace = true }
 serde = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# .md 를 여는 것으로 등록된 프로그램을 찾는다 (open_with.rs)
+winreg = "0.56"

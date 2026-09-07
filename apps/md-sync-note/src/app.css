@@ -347,3 +347,35 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 .search-line-no { flex: none; width: 26px; text-align: right; color: #b3b9c0; }
 .search-line { overflow: hidden; text-overflow: ellipsis; }
 .search-line mark { background: #fde68a; color: #1c2733; border-radius: 2px; padding: 0 1px; }
+
+/* 설정 줄 안의 한 항목 (MD Notepad 실행 파일 고르기 등) */
+.settings .row-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  font-size: 11px;
+  color: #5a616a;
+}
+.settings .row-line code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 6px;
+  background: #f1f3f5;
+  border-radius: 4px;
+}
+.settings .row-line code.missing { color: #b91c1c; background: #fdecec; }
+.settings .row-line button {
+  flex: none;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 9px;
+  border: 1px solid #d0d5dc;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+.settings .row-line button:hover { background: #f0f2f5; }

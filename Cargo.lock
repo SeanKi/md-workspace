@@ -1816,7 +1816,7 @@ dependencies = [
 
 [[package]]
 name = "md-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "base64 0.22.1",
  "notify",
@@ -1829,7 +1829,7 @@ dependencies = [
 
 [[package]]
 name = "md-editor"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "md-core",
  "serde",
@@ -1841,13 +1841,14 @@ dependencies = [
 
 [[package]]
 name = "md-sync-note"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "md-core",
  "serde",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "winreg 0.56.0",
 ]
 
 [[package]]
