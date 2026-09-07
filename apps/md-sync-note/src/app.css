@@ -110,8 +110,16 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 }
 .node:hover { background: #e6eaf0; }
 .node.on { background: #dbe6fb; color: #14346b; font-weight: 600; }
-/* 화살표 칸 폭은 TreeNode.jsx 의 CARET 과 짝이다. 함께 고칠 것 */
-.node .caret { width: 10px; flex: none; color: #98a0aa; font-size: 10px; }
+/* 접고 펴는 화살표. 작고 흐려서 안 보인다는 말이 있어 반쯤 키우고 진하게 했다.
+   칸 폭은 TreeNode.jsx 의 CARET 과 짝이다 — 함께 고칠 것.
+   line-height 를 1 로 묶어야 글자를 키워도 줄 높이가 따라 늘지 않는다 */
+.node .caret, .repo-head .caret {
+  width: 15px;
+  flex: none;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1;
+}
 .node .ico { flex: none; font-size: 12.5px; }
 .node.muted, .node.err { cursor: default; font-size: 12px; }
 .node.muted { color: #a4aab2; }
