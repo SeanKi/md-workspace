@@ -40,7 +40,7 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, 
       </div>
       <div className="repo-path" title={repo.path}>{repo.path}</div>
       <GitLine repo={repo} tick={gitTick} />
-      {ops.notice && <div className="node err">{ops.notice}</div>}
+      {ops.notice && <div className={'node ' + (ops.notice.ok ? 'ok' : 'err')}>{ops.notice.text}</div>}
       {open && (
         error ? <div className="node err">{error}</div>
         : roots === null ? <div className="node muted">읽는 중…</div>

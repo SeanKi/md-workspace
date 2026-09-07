@@ -2,7 +2,7 @@ import React from 'react'
 import { normalizeImageDir } from '@md/editor-core'
 
 /** 톱니바퀴를 눌렀을 때 나오는 설정 줄. */
-export default function SettingsBar({ settings, onChange, opsFallbackSec }) {
+export default function SettingsBar({ settings, onChange, opsFallbackSec, configPath }) {
   return (
     <div className="settings">
       <label>
@@ -34,6 +34,12 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec }) {
         트리에서 한 이름 바꾸기·옮기기·삭제도 같은 간격으로 따로 커밋됩니다
         (자동 저장을 꺼 두면 {opsFallbackSec}초마다).
       </span>
+      {configPath && (
+        <span className="hint">
+          설정과 저장소 목록은 <code>{configPath}</code> 에 있습니다 — 메모장으로 열어 고칠 수 있습니다
+          (앱을 닫은 뒤에).
+        </span>
+      )}
     </div>
   )
 }

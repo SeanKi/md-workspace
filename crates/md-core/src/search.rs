@@ -35,6 +35,17 @@ pub struct Hit {
     pub start: usize,
     pub end: usize,
     pub score: i32,
+    /// 파일 수정 시각(유닉스 초). 알 수 없으면 0
+    pub modified: i64,
+}
+
+/// 파일 수정 시각. 못 읽으면 0 — 검색은 계속되어야 한다
+fn modified_at(meta: &std::fs::Metadata) -> i64 {
+    meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 #[derive(Serialize)]
@@ -123,9 +134,11 @@ pub fn search_repo(root: String, query: String) -> Result<SearchResult, String> 
             truncated = true;
             break;
         }
-        if std::fs::metadata(path).map(|m| m.len()).unwrap_or(0) > MAX_BYTES {
+        let Ok(meta) = std::fs::metadata(path) else { continue };
+        if meta.len() > MAX_BYTES {
             continue;
         }
+        let modified = modified_at(&meta);
         let Ok(text) = std::fs::read_to_string(path) else { continue };
         scanned += 1;
 
@@ -154,6 +167,7 @@ pub fn search_repo(root: String, query: String) -> Result<SearchResult, String> 
                 start,
                 end,
                 score: score_of(name_hit, line),
+                modified,
             });
             in_file += 1;
         }
@@ -167,6 +181,7 @@ pub fn search_repo(root: String, query: String) -> Result<SearchResult, String> 
                 start: 0,
                 end: 0,
                 score: score_of(true, ""),
+                modified,
             });
             in_file += 1;
         }
@@ -207,6 +222,22 @@ mod tests {
             std::fs::write(p, body).unwrap();
         }
         root.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn 수정_시각을_함께_돌려준다() {
+        // 검색 결과에서 "언제 고친 문서인가" 를 보여주는 데 쓴다
+        let root = make("mtime", &[("a.md", "# 제목
+검색어
+")]);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let r = search_repo(root, "검색어".into()).unwrap();
+        let m = r.hits[0].modified;
+        assert!(m > 0, "수정 시각을 읽지 못했다");
+        assert!((now - m).abs() < 60, "방금 만든 파일인데 {m} 이 나왔다");
     }
 
     #[test]

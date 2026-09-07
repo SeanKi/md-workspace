@@ -13,8 +13,11 @@ import {
 import { mermaidDescriptor, InsertMermaid } from './MermaidBlock.jsx'
 import { tableCellBreakPlugin } from './tableCellBreak.jsx'
 import { uploadImage, previewImage } from './images.js'
+import { useTableCellSelect } from './tableSelect.js'
 
 export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
+  useTableCellSelect()
+
   // ctxRef 는 항상 최신 { path, imageDir } 을 들고 있으므로
   // plugins 배열은 한 번만 만들어도 된다.
   const plugins = useMemo(() => [

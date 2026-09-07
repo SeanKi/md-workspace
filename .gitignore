@@ -5,3 +5,4 @@ release-out
 build-log.txt
 diagnose-log.txt
 run-log.txt
+__pycache__/

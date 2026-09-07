@@ -21,8 +21,11 @@
 // `<P_20260525161121.222>`), 그건 마크업이 아니라 **보여 줄 텍스트**다.
 // 그래서 실제 HTML 태그 목록에 있는 이름만 태그로 인정한다.
 //
-// 코드블록과 인라인 코드 안은 건드리지 않는다 — 예제 코드를 고쳐 버리면 안 된다.
+// 코드블록·인라인 코드·주석 안은 건드리지 않는다 — 예제 코드를 고쳐 버리면 안 된다.
+// 어디가 그런 자리인지는 `mdSegments.js` 가 가른다.
 // 열었다고 파일이 바뀌지는 않는다. 디스크에 반영되는 시점은 사용자가 저장할 때다.
+
+import { splitLines } from './mdSegments.js'
 
 // 마크다운 문서에 실제로 쓰이는 HTML 태그
 const HTML_TAGS = new Set([
@@ -44,24 +47,6 @@ const VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'col', 'source', 'wbr'])
 const TAG_RE = /^<(\/?)([A-Za-z][A-Za-z0-9-]*)(\s[^<>]*?)?\s*(\/?)>/
 const COMMENT_RE = /^<!--[\s\S]*?-->/
 const AUTOLINK_RE = /<([a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]+)>|<([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)>/g
-const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/
-const INLINE_CODE_RE = /(`+[^`]*`+)/
-
-/** 한 줄을 코드/비코드 조각으로 나눈다. 코드 조각은 끝까지 그대로 간다. */
-function splitLines(markdown) {
-  let fence = null
-  return markdown.split('\n').map((line) => {
-    const f = FENCE_RE.exec(line)
-    if (f) {
-      const marker = f[1][0]
-      if (fence === null) fence = marker
-      else if (fence === marker) fence = null
-      return [{ code: true, text: line }]
-    }
-    if (fence !== null) return [{ code: true, text: line }]
-    return line.split(INLINE_CODE_RE).map((text, i) => ({ code: i % 2 === 1, text }))
-  })
-}
 
 /** 왼쪽부터 훑으며 주석 · HTML 태그 · 그 외 `<` 를 구분한다. */
 function* scan(text) {
@@ -98,13 +83,18 @@ function* scan(text) {
  * 짝이 맞지 않는 태그 이름을 찾는다.
  * `<div>` 만 있고 `</div>` 가 없으면 MDX 는 끝까지 닫는 태그를 찾다 실패한다.
  * 그런 이름은 태그가 아니라 텍스트로 본다.
+ *
+ * 짝은 **범위 안에서만** 센다. 표 셀을 넘는 `| <b>굵게 | 계속</b> |` 는
+ * 문서 전체로는 짝이 맞지만 MDX 는 셀 경계를 넘지 못해 실패한다.
  */
 function unbalancedTags(lines) {
-  const depth = new Map()
+  const depths = new Map()   // scope → Map(tagName → depth)
   const bad = new Set()
   for (const parts of lines) {
     for (const part of parts) {
       if (part.code) continue
+      let depth = depths.get(part.scope)
+      if (!depth) { depth = new Map(); depths.set(part.scope, depth) }
       for (const tok of scan(part.text)) {
         if (tok.t !== 'tag' || tok.selfClosing || VOID_TAGS.has(tok.name)) continue
         const d = (depth.get(tok.name) ?? 0) + (tok.closing ? -1 : 1)
@@ -113,7 +103,9 @@ function unbalancedTags(lines) {
       }
     }
   }
-  for (const [name, d] of depth) if (d !== 0) bad.add(name)
+  for (const depth of depths.values()) {
+    for (const [name, d] of depth) if (d !== 0) bad.add(name)
+  }
   return bad
 }
 

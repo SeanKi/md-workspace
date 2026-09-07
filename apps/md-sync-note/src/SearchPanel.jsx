@@ -4,6 +4,22 @@ import { isTauri } from '@md/editor-core'
 
 const DEBOUNCE = 220   // 타이핑이 멎으면 찾는다
 
+/**
+ * 수정 시각을 짧게. 오늘 고친 것은 시각이, 올해 것은 월·일이 궁금하다.
+ * 자리가 좁으므로 전체 시각은 title 로만 보여 준다.
+ */
+function whenShort(sec) {
+  if (!sec) return ''
+  const d = new Date(sec * 1000)
+  const now = new Date()
+  const p2 = (n) => String(n).padStart(2, '0')
+  if (d.toDateString() === now.toDateString()) return `${p2(d.getHours())}:${p2(d.getMinutes())}`
+  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}/${d.getDate()}`
+  return `${d.getFullYear()}.${p2(d.getMonth() + 1)}.${p2(d.getDate())}`
+}
+
+const whenFull = (sec) => (sec ? new Date(sec * 1000).toLocaleString() : '')
+
 /** 여러 저장소를 훑고 결과를 파일별로 묶는다. */
 async function run(repos, query) {
   const all = []
@@ -24,7 +40,10 @@ async function run(repos, query) {
   const byPath = new Map()
   for (const h of all) {
     let g = byPath.get(h.path)
-    if (!g) { g = { path: h.path, name: h.name, repo: h.repo, hits: [] }; byPath.set(h.path, g); groups.push(g) }
+    if (!g) {
+      g = { path: h.path, name: h.name, repo: h.repo, modified: h.modified, hits: [] }
+      byPath.set(h.path, g); groups.push(g)
+    }
     g.hits.push(h)
   }
   return { groups, count: all.length, scanned, truncated, ms }
@@ -93,6 +112,7 @@ export default function SearchPanel({ repos, activePath, onOpen }) {
           <div className="search-file" title={g.path} onClick={() => onOpen(g.path)}>
             📄 {g.name}
             <span className="search-repo">{g.repo}</span>
+            <span className="search-when" title={`수정 ${whenFull(g.modified)}`}>{whenShort(g.modified)}</span>
           </div>
           {g.hits.map((h, i) => (
             <div key={i} className="search-hit" onClick={() => onOpen(h.path, [h.line, [...h.line].slice(h.start, h.end).join('')])}>

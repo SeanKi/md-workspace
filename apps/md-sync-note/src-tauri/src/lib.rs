@@ -1,4 +1,6 @@
+mod config;
 mod git;
+mod open_with;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,6 +20,11 @@ pub fn run() {
             git::git_status,
             git::git_init,
             git::git_commit,
+            open_with::open_in_md_editor,
+            open_with::has_md_editor,
+            config::config_load,
+            config::config_save,
+            config::config_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

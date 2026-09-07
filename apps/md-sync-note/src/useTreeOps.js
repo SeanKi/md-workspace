@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { confirm } from '@tauri-apps/plugin-dialog'
 import { isTauri } from '@md/editor-core'
 import {
   checkName, createDir, createNote, deletePath, dirOf, isInside, join, renamePath, samePath,
 } from './fileOps.js'
+import { copyText, hasMdEditor, openInMdEditor } from './shell.js'
 
 /**
  * 트리에서 만들고 · 이름 바꾸고 · 옮기고 · 지우는 동작.
@@ -18,16 +19,22 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
   const [versions, setVersions] = useState({})
   const [menu, setMenu] = useState(null)      // { x, y, target }
   const [dialog, setDialog] = useState(null)  // { kind, parent|target, value }
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState(null)   // { text, ok }
+  const [editorHere, setEditorHere] = useState(false)
+
+  // MD Editor 가 옆에 없으면 메뉴에 항목을 내지 않는다 (눌러도 실패할 뿐이다)
+  useEffect(() => { hasMdEditor().then(setEditorHere).catch(() => setEditorHere(false)) }, [])
 
   const refresh = useCallback((path) => {
     setVersions((v) => ({ ...v, [path]: (v[path] ?? 0) + 1 }))
   }, [])
 
-  const fail = useCallback((e) => {
-    setNotice(String(e).replace(/^Error:\s*/, ''))
-    setTimeout(() => setNotice(''), 5000)
+  const say = useCallback((text, ok) => {
+    setNotice({ text, ok })
+    setTimeout(() => setNotice(null), ok ? 2500 : 5000)
   }, [])
+
+  const fail = useCallback((e) => say(String(e).replace(/^Error:\s*/, ''), false), [say])
 
   const openMenu = useCallback((e, target) => {
     e.preventDefault()
@@ -82,6 +89,20 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
     } catch (e) { fail(e) }
   }, [refresh, onPathChanged, fail])
 
+  const openElsewhere = useCallback(async (t) => {
+    try {
+      await openInMdEditor(t.path)
+      say(`MD Editor 로 열었습니다 — ${t.name}`, true)
+    } catch (e) { fail(e) }
+  }, [say, fail])
+
+  const copyPath = useCallback(async (t) => {
+    try {
+      await copyText(t.path)
+      say('경로를 복사했습니다', true)
+    } catch (e) { fail(e) }
+  }, [say, fail])
+
   /** 지금 누른 자리에서 할 수 있는 것들 */
   const menuItems = useCallback((t) => {
     const items = []
@@ -89,13 +110,18 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
       items.push({ label: '새 노트', run: () => setDialog({ kind: 'note', parent: t.path, value: '' }) })
       items.push({ label: '새 폴더', run: () => setDialog({ kind: 'dir', parent: t.path, value: '' }) })
     }
+
+    if (items.length) items.push({ sep: true })
+    if (!t.is_dir && editorHere) items.push({ label: 'MD Editor 로 열기', run: () => openElsewhere(t) })
+    items.push({ label: '경로 복사', run: () => copyPath(t) })
+
     if (!t.isRoot) {
-      if (items.length) items.push({ sep: true })
+      items.push({ sep: true })
       items.push({ label: '이름 바꾸기 (F2)', run: () => startRename(t) })
       items.push({ label: '삭제 (휴지통으로)', danger: true, run: () => remove(t) })
     }
     return items
-  }, [remove, startRename])
+  }, [remove, startRename, editorHere, openElsewhere, copyPath])
 
   const dialogTitle = dialog && (
     dialog.kind === 'note' ? '새 노트'

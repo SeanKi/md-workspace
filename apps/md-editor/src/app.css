@@ -1,16 +1,49 @@
 /* --- 탭 바 --- */
+/* 제목줄이 없다. 문서 제목은 창 제목(작업 표시줄)이 말한다.
+   탭은 넘치면 옆으로 밀리고, 오른쪽 단추들은 늘 제자리에 있어야 하므로
+   한 줄(.tabrow) 안에서 스크롤 영역과 단추 영역을 나눈다 */
+.tabrow {
+  display: flex;
+  align-items: stretch;
+  background: #eef0f3;
+  border-bottom: 1px solid #dcdfe4;
+  user-select: none;
+  flex: none;
+}
 .tabbar {
   display: flex;
   align-items: stretch;
   gap: 2px;
   padding: 0 6px;
-  background: #eef0f3;
-  border-bottom: 1px solid #dcdfe4;
   overflow-x: auto;
-  user-select: none;
-  flex: none;
+  flex: 1;
+  min-width: 0;
 }
 .tabbar::-webkit-scrollbar { height: 6px; }
+
+.tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  flex: none;
+}
+.tab-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  color: #4a5058;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.tab-actions button:hover { background: #dde1e7; color: #111; }
+.tab-actions button:active { background: #d0d5dc; }
+.tab-actions svg { width: 16px; height: 16px; }
 .tab {
   display: flex;
   align-items: center;

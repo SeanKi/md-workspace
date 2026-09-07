@@ -1,17 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, loadSettings, saveSettings, normalizeForEditor, describeFixes } from '@md/editor-core'
+import { SplitEditor, isTauri, normalizeForEditor, describeFixes } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import SearchPanel from './SearchPanel.jsx'
 import SideSplit, { SIDE_DEFAULT } from './SideSplit.jsx'
 import SettingsBar from './SettingsBar.jsx'
 import usePendingCommits from './usePendingCommits.js'
 import { revealText } from './revealText.js'
-import { loadRepos, saveRepos, baseName, repoOf } from './repos.js'
+import { baseName, repoOf } from './repos.js'
+import { loadConfig, saveConfig, onConfigError } from './config.js'
 import { gitCommit, commitMessage } from './git.js'
 
-const SETTINGS_KEY = 'md-sync-note-settings'
 const DEFAULTS = {
   imageDir: 'images', autoSaveSec: 60, autoCommit: true, wideLayout: false,
   sideWidth: SIDE_DEFAULT,
@@ -22,8 +22,8 @@ const OPS_FALLBACK_SEC = 60
 let seq = 0
 
 export default function App() {
-  const [repos, setRepos] = useState(loadRepos)
-  const [settings, setSettings] = useState(() => loadSettings(SETTINGS_KEY, DEFAULTS))
+  const [repos, setRepos] = useState([])
+  const [settings, setSettings] = useState(DEFAULTS)
   const [showSettings, setShowSettings] = useState(false)
   const [doc, setDoc] = useState(null)          // { path, content, dirty, savedAt }
   const [status, setStatus] = useState('')
@@ -43,12 +43,27 @@ export default function App() {
   // 트리에서 한 파일 조작을 모았다가 자동 저장 박자에 맞춰 커밋한다
   const { note: noteOp, flush: flushOps } = usePendingCommits({ cfgRef, setStatus, setGitTick })
 
+  /* ---------- 환경 설정 파일 (실행 파일 옆 MDSyncNote.ini) ---------- */
+
+  const [configPath, setConfigPath] = useState('')
+
+  useEffect(() => {
+    onConfigError((e) => setStatus(e))
+    loadConfig(DEFAULTS).then(({ settings: s, repos: r, path, note }) => {
+      setSettings(s)
+      setRepos(r)
+      setConfigPath(path)
+      seq = r.length                       // 새로 더하는 저장소 번호가 겹치지 않게
+      if (note) setStatus(note)
+    })
+  }, [])
+
   /* ---------- 저장소 ---------- */
 
   const addRepo = useCallback(async () => {
     if (!isTauri) {
       const demo = { id: `r${++seq}`, name: '데모 저장소', kind: 'local', path: '/demo' }
-      setRepos((rs) => { const n = [...rs, demo]; saveRepos(n); return n })
+      setRepos((rs) => { const n = [...rs, demo]; saveConfig(cfgRef.current.settings, n); return n })
       return
     }
     const picked = await openDialog({ directory: true, multiple: false })
@@ -57,13 +72,13 @@ export default function App() {
     setRepos((rs) => {
       if (rs.some((r) => r.path === path)) return rs
       const n = [...rs, { id: `r${++seq}-${Date.now()}`, name: baseName(path), kind: 'local', path }]
-      saveRepos(n)
+      saveConfig(cfgRef.current.settings, n)
       return n
     })
   }, [])
 
   const removeRepo = useCallback((id) => {
-    setRepos((rs) => { const n = rs.filter((r) => r.id !== id); saveRepos(n); return n })
+    setRepos((rs) => { const n = rs.filter((r) => r.id !== id); saveConfig(cfgRef.current.settings, n); return n })
   }, [])
 
   /* ---------- 문서 ---------- */
@@ -174,7 +189,7 @@ export default function App() {
   const update = (patch) => {
     const next = { ...settings, ...patch }
     setSettings(next)
-    saveSettings(SETTINGS_KEY, next)
+    saveConfig(next, cfgRef.current.repos)
   }
 
   /* ---------- 렌더 ---------- */
@@ -213,7 +228,8 @@ export default function App() {
         </div>
 
         {showSettings && (
-          <SettingsBar settings={settings} onChange={update} opsFallbackSec={OPS_FALLBACK_SEC} />
+          <SettingsBar settings={settings} onChange={update} opsFallbackSec={OPS_FALLBACK_SEC}
+                       configPath={configPath} />
         )}
 
         {doc

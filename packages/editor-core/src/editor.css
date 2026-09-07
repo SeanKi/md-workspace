@@ -317,7 +317,7 @@ body {
 
   /* 화면에서만 쓰는 것들. 나눠 보고 있어도 인쇄물은 한 벌이다 */
   .split-grab, .split-bar, .pane-bottom,
-  .topzone, .titlebar, .tabbar, .settings, .sidebar, .side-split,
+  .topzone, .titlebar, .tabrow, .tabbar, .settings, .sidebar, .side-split,
   .mdxeditor-toolbar, .drop-hint, .modal-back { display: none !important; }
 
   /* 표의 행·열 손잡이와 편집용 버튼 */
@@ -349,4 +349,28 @@ body {
   .prose thead { display: table-header-group; }   /* 표 머리글을 페이지마다 반복 */
 
   .prose a { color: #1d4ed8 !important; border: 0 !important; text-decoration: underline; }
+}
+
+/* --- 표에서 여러 셀 끌어 고르기 (tableSelect.js) --- */
+
+/* MDXEditor 는 셀 안쪽만 편집기라 브라우저 선택이 셀 경계를 넘지 못한다.
+   그래서 선택을 우리가 그린다. 셀 배경은 플러그인 CSS 모듈이 잡고 있어
+   !important 가 아니면 덮이지 않는다 */
+td.md-cell-sel, th.md-cell-sel { background-color: #cfe0ff !important; }
+
+/* 끄는 동안 글자가 딸려 선택되면 화면이 지저분하다 */
+.md-cells-dragging, .md-cells-dragging * { user-select: none !important; }
+
+.md-cell-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(37, 99, 235, .92);
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 200;
 }

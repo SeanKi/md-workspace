@@ -116,6 +116,8 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 .node.muted { color: #a4aab2; }
 .node.muted:hover, .node.err:hover { background: transparent; }
 .node.err { color: #b91c1c; white-space: normal; }
+.node.ok { color: #15803d; white-space: normal; font-size: 11px; cursor: default; }
+.node.ok:hover { background: transparent; }
 /* 포커스가 보여야 F2 가 어디에 걸리는지 안다 */
 .node:focus-visible { outline: 2px solid #93b4f5; outline-offset: -2px; }
 
@@ -320,6 +322,8 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 }
 .search-file:hover { background: #eef2f7; }
 .search-repo { margin-left: auto; font-weight: 400; color: #a4aab2; }
+/* 수정 시각 — 맨 오른쪽 끝에 고정 폭으로. 파일 이름이 길어도 자리가 밀리지 않는다 */
+.search-when { flex: none; font-weight: 400; color: #a4aab2; font-variant-numeric: tabular-nums; }
 .search-hit {
   display: flex;
   gap: 6px;

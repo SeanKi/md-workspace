@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { confirm } from '@tauri-apps/plugin-dialog'
 import { SplitEditor, isTauri, loadSettings, saveSettings } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
@@ -9,7 +10,7 @@ import useShortcuts from './useShortcuts.js'
 import useFiles from './useFiles.js'
 import useExternalChanges from './useExternalChanges.js'
 import ReloadDialog from './ReloadDialog.jsx'
-import { OPENABLE, baseName } from './paths.js'
+import { OPENABLE, baseName, docTitle } from './paths.js'
 
 const SETTINGS_KEY = 'md-editor-settings'
 
@@ -28,6 +29,10 @@ export default function App() {
 
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0]
 
+  // 문서 제목 — 첫 `# 제목`, 없으면 파일 이름.
+  // 화면에는 제목줄을 두지 않는다. 이 값이 가는 곳은 **창 제목(작업 표시줄)** 과 탭이다
+  const title = docTitle(active?.content, active?.path)
+
   // 이미지 핸들러가 항상 최신 문서 경로와 설정을 보도록 ref 로 전달
   const ctxRef = useRef({ path: null, imageDir: 'images' })
   ctxRef.current = { path: active?.path ?? null, imageDir: settings.imageDir }
@@ -37,6 +42,14 @@ export default function App() {
   tabsRef.current = tabs
   const activeRef = useRef(active)
   activeRef.current = active
+
+  /* ---------- 창 제목 ---------- */
+
+  useEffect(() => {
+    const full = `${active?.dirty ? '● ' : ''}${title} — MD Editor`
+    document.title = full
+    if (isTauri) getCurrentWindow().setTitle(full).catch(() => {})
+  }, [title, active?.dirty])
 
   /* ---------- 알림 ---------- */
 
@@ -102,7 +115,7 @@ export default function App() {
   /* ---------- 드래그 앤 드롭 (상단에 놓아야 열린다) ---------- */
 
   const onDrop = useCallback((paths, inTop) => {
-    if (!inTop) { say('상단 제목줄·탭 영역에 놓아야 파일이 열립니다'); return }
+    if (!inTop) { say('맨 위 탭 줄에 놓아야 파일이 열립니다'); return }
     const md = paths.filter((p) => OPENABLE.test(p))
     if (md.length === 0) { say('마크다운 파일(.md · .markdown · .mdx · .txt)만 열 수 있습니다'); return }
     md.forEach(openPath)
@@ -149,22 +162,17 @@ export default function App() {
         ref={topRef}
         className={'topzone' + (dropWhere ? ` drop-${dropWhere}` : '')}
       >
-        <div className="titlebar">
-          <span className="path">{active?.path ?? ''}</span>
-          <span className="spacer" />
-          <button onClick={addTab} title="Ctrl+T">새 탭</button>
-          <button onClick={openDialog} title="Ctrl+O">열기</button>
-          <button onClick={() => saveActive(false)} title="Ctrl+S">저장</button>
-          <button onClick={() => saveActive(true)} title="Ctrl+Shift+S">다른 이름으로</button>
-          <button onClick={() => setShowSettings((v) => !v)} title="설정">⚙</button>
-        </div>
-
         <TabBar
           tabs={tabs}
+          titleOf={(t) => docTitle(t.content, t.path)}
           activeId={activeId}
           onSelect={setActiveId}
           onClose={closeTab}
           onAdd={addTab}
+          onOpen={openDialog}
+          onSave={() => saveActive(false)}
+          onSaveAs={() => saveActive(true)}
+          onSettings={() => setShowSettings((v) => !v)}
         />
       </div>
 
@@ -184,7 +192,7 @@ export default function App() {
         <div className={'drop-hint' + (dropWhere === 'out' ? ' warn' : '')}>
           {dropWhere === 'in'
             ? '놓으면 새 탭으로 열립니다'
-            : '↑ 상단 제목줄·탭 영역에 놓으세요'}
+            : '↑ 맨 위 탭 줄에 놓으세요'}
         </div>
       )}
       {notice && <div className="drop-hint warn">{notice}</div>}
