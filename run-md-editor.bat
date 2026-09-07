@@ -4,10 +4,10 @@ setlocal
 cd /d "%~dp0"
 set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
 set "LOG=%~dp0run-log.txt"
-title MD Editor
+title MD Notepad
 
 echo ============================================
-echo   MD Editor
+echo   MD Notepad
 echo ============================================
 echo.
 

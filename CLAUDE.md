@@ -7,7 +7,8 @@ MD Editor / MDSyncNote 모노레포. 이 파일은 매 세션 자동으로 읽�
 
 마크다운을 **위지윅으로 편집**하는 Windows 데스크톱 앱 두 개.
 
-- **MD Editor** — 단일 창 에디터. 탭, 드래그앤드롭, 이미지 붙여넣기
+- **MD Notepad** — 단일 창 에디터. 탭, 드래그앤드롭, 이미지 붙여넣기
+  (패키지·폴더 이름은 `md-editor` 그대로다. 보이는 이름만 v0.12.0 에서 바뀌었다)
 - **MDSyncNote** — 왼쪽 저장소 트리 + 오른쪽 노트 뷰. 최종적으로 다중 기기 동기화
 
 핵심 원칙: **실제 `.md` 파일이 진실의 원천이다.** VS Code·Obsidian·GitHub 와 그대로
@@ -159,6 +160,15 @@ Tauri 는 `#[tauri::command]` 를 **메인 스레드에서** 돌린다(`Executio
 
 `<Editor key={tabId} markdown={...} />`. 하나의 인스턴스에 `setMarkdown` 을 호출하면
 상태가 섞이고 되돌리기 이력이 엉킨다.
+
+### 창 제목을 바꾸려면 권한이 따로 필요하다
+
+`capabilities/default.json` 에 **`core:window:allow-set-title`**. `core:default` 에는
+읽기(`allow-title`)만 들어 있어서 `setTitle` 이 **조용히 거절된다.**
+
+v0.10.0 에서 넣은 창 제목이 v0.12.0 까지 동작하지 않았던 이유가 이것이고,
+`.catch(() => {})` 로 오류를 삼키던 코드가 그 사실을 숨겼다.
+**Tauri 호출의 실패는 삼키지 말고 `note()` 로 남길 것** — `.mdlog` 에 쌓인다.
 
 ### Windows 파일 연결은 HKCU 만 건드린다
 

@@ -65,7 +65,7 @@ if not exist "node_modules\@md\editor-core\package.json" (
 echo   [O] 준비 완료
 
 echo.
-echo [1/2] MD Editor 빌드... (오래 걸립니다)
+echo [1/2] MD Notepad 빌드... (오래 걸립니다)
 call npm run build:editor >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo   [X] 실패. 로그 마지막 30줄:
@@ -84,7 +84,7 @@ if errorlevel 1 (
 set "OUT=%~dp0release-out"
 if not exist "%OUT%" mkdir "%OUT%"
 for /r "target\release\bundle\nsis" %%f in (*.exe) do copy /y "%%f" "%OUT%\" >nul
-if exist "target\release\md-editor.exe"    copy /y "target\release\md-editor.exe"    "%OUT%\MD-Editor-portable.exe" >nul
+if exist "target\release\md-editor.exe"    copy /y "target\release\md-editor.exe"    "%OUT%\MD-Notepad-portable.exe" >nul
 if exist "target\release\md-sync-note.exe" copy /y "target\release\md-sync-note.exe" "%OUT%\MDSyncNote-portable.exe" >nul
 
 echo.

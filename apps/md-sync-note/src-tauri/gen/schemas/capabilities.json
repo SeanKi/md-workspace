@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"기본 권한: 창 제어 + 파일 열기/저장 대화상자","local":true,"windows":["main"],"permissions":["core:default","dialog:default"]}}
+{"default":{"identifier":"default","description":"기본 권한: 창 제어(제목 바꾸기 포함) + 파일 열기/저장 대화상자","local":true,"windows":["main"],"permissions":["core:default","dialog:default","core:window:allow-set-title"]}}

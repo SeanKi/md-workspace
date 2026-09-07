@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@md/editor-core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, normalizeForEditor, describeFixes, bigDocNotice, startDiag, useBusy } from '@md/editor-core'
+import { SplitEditor, isTauri, normalizeForEditor, describeFixes, bigDocNotice, startDiag, useBusy, note } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import SearchPanel from './SearchPanel.jsx'
 import SideSplit, { SIDE_DEFAULT } from './SideSplit.jsx'
@@ -60,18 +61,29 @@ export default function App() {
   // 오래 걸리는 일이 있으면 무엇을 하는 중인지 말해 준다 (멎은 것으로 오해하지 않게)
   const busy = useBusy()
 
+  // 창 제목(작업 표시줄) — 연 문서 · 앱 이름 · 버전.
+  // `core:window:allow-set-title` 이 있어야 한다. 막히면 조용하므로 기록에 남긴다
+  useEffect(() => {
+    const d = docRef.current
+    const full = d
+      ? `${d.dirty ? '● ' : ''}${baseName(d.path)} — MDSyncNote v${__APP_VERSION__}`
+      : `MDSyncNote v${__APP_VERSION__}`
+    document.title = full
+    if (isTauri) getCurrentWindow().setTitle(full).catch((e) => note(`창 제목 실패: ${e}`))
+  }, [doc?.path, doc?.dirty])
+
   /* ---------- 환경 설정 파일 (실행 파일 옆 MDSyncNote.ini) ---------- */
 
   const [configPath, setConfigPath] = useState('')
 
   useEffect(() => {
     onConfigError((e) => setStatus(e))
-    loadConfig(DEFAULTS).then(({ settings: s, repos: r, path, note }) => {
+    loadConfig(DEFAULTS).then(({ settings: s, repos: r, path, note: hint }) => {
       setSettings(s)
       setRepos(r)
       setConfigPath(path)
       seq = r.length                       // 새로 더하는 저장소 번호가 겹치지 않게
-      if (note) setStatus(note)
+      if (hint) setStatus(hint)
     })
   }, [])
 

@@ -35,7 +35,7 @@ if not exist "node_modules\@md\editor-core\package.json" (
   pause & exit /b 1
 )
 
-echo [2/3] MD Editor 빌드... (처음이면 5~15 분)
+echo [2/3] MD Notepad 빌드... (처음이면 5~15 분)
 call npm run tauri -w md-editor -- build --no-bundle >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo   [X] 실패. 로그 마지막 30 줄:
@@ -53,7 +53,7 @@ if errorlevel 1 (
 
 set "OUT=%~dp0release-out"
 if not exist "%OUT%" mkdir "%OUT%"
-copy /y "target\release\md-editor.exe"    "%OUT%\MD-Editor-portable.exe"  >nul
+copy /y "target\release\md-editor.exe"    "%OUT%\MD-Notepad-portable.exe"  >nul
 copy /y "target\release\md-sync-note.exe" "%OUT%\MDSyncNote-portable.exe" >nul
 
 echo.

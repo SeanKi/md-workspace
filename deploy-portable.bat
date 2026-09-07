@@ -8,7 +8,7 @@ set "LOG=%~dp0deploy-log.txt"
 title portable 실행 파일 배포
 
 :check_build
-if not exist "release-out\MD-Editor-portable.exe" (
+if not exist "release-out\MD-Notepad-portable.exe" (
   echo ============================================
   echo   빌드된 파일을 찾지 못했습니다.
   echo   먼저 build-portable.bat 을 실행하여 빌드를 완료하세요.
@@ -36,10 +36,10 @@ echo.
 set "DEST=C:\utility\Markdown\"
 if not exist "%DEST%" mkdir "%DEST%"
 
-echo [1/2] MD-Editor portable 복사...
-copy /y "release-out\MD-Editor-portable.exe" "%DEST%\MD-Editor-portable.exe" >> "%LOG%" 2>&1
+echo [1/2] MD-Notepad portable 복사...
+copy /y "release-out\MD-Notepad-portable.exe" "%DEST%\MD-Notepad-portable.exe" >> "%LOG%" 2>&1
 if errorlevel 1 (
-  echo   [X] MD-Editor 복사 실패
+  echo   [X] MD-Notepad 복사 실패
   pause
   exit /b 1
 )

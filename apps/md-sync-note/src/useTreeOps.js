@@ -22,7 +22,7 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
   const [notice, setNotice] = useState(null)   // { text, ok }
   const [editorHere, setEditorHere] = useState(false)
 
-  // MD Editor 가 옆에 없으면 메뉴에 항목을 내지 않는다 (눌러도 실패할 뿐이다)
+  // MD Notepad 가 옆에 없으면 메뉴에 항목을 내지 않는다 (눌러도 실패할 뿐이다)
   useEffect(() => { hasMdEditor().then(setEditorHere).catch(() => setEditorHere(false)) }, [])
 
   const refresh = useCallback((path) => {
@@ -92,7 +92,7 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
   const openElsewhere = useCallback(async (t) => {
     try {
       await openInMdEditor(t.path)
-      say(`MD Editor 로 열었습니다 — ${t.name}`, true)
+      say(`MD Notepad 로 열었습니다 — ${t.name}`, true)
     } catch (e) { fail(e) }
   }, [say, fail])
 
@@ -112,7 +112,7 @@ export default function useTreeOps({ onOpen, onPathChanged }) {
     }
 
     if (items.length) items.push({ sep: true })
-    if (!t.is_dir && editorHere) items.push({ label: 'MD Editor 로 열기', run: () => openElsewhere(t) })
+    if (!t.is_dir && editorHere) items.push({ label: 'MD Notepad 로 열기', run: () => openElsewhere(t) })
     items.push({ label: '경로 복사', run: () => copyPath(t) })
 
     if (!t.isRoot) {

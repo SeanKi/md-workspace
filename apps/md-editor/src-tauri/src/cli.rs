@@ -1,4 +1,4 @@
-//! 명령줄로 넘어온 파일. 탐색기에서 "MD Editor로 열기" 를 누르면
+//! 명령줄로 넘어온 파일. 탐색기에서 "MD Notepad로 열기" 를 누르면
 //! Windows 가 `md-editor.exe "C:\...\note.md"` 형태로 실행한다.
 
 use std::path::Path;

@@ -21,7 +21,7 @@ set "A=md-editor.exe"
 set "B=md-sync-note.exe"
 if not exist "%SRC%\%A%" (
   set "SRC=%~dp0release-out"
-  set "A=MD-Editor-portable.exe"
+  set "A=MD-Notepad-portable.exe"
   set "B=MDSyncNote-portable.exe"
 )
 
@@ -47,7 +47,7 @@ for %%f in ("%SRC%\%A%" "%SRC%\%B%") do echo   [O] %%~nxf   %%~zf bytes   %%~tf
 echo [2/4] 앱이 켜져 있는지 확인...
 rem 실행 중인 exe 는 덮어쓸 수 없다. 복사가 반쯤 되고 실패하기 전에 미리 막는다.
 set "RUNNING="
-for %%p in (MD-Editor-portable.exe MDSyncNote-portable.exe md-editor.exe md-sync-note.exe) do (
+for %%p in (MD-Notepad-portable.exe MD-Editor-portable.exe MDSyncNote-portable.exe md-editor.exe md-sync-note.exe) do (
   tasklist /fi "imagename eq %%p" 2>nul | find /i "%%p" >nul && (
     echo   [!] %%p 이^(가^) 실행 중입니다
     set "RUNNING=1"
@@ -70,8 +70,8 @@ if not exist "%DEST%" (
 )
 
 echo [4/4] 복사...
-copy /y "%SRC%\%A%" "%DEST%\MD-Editor-portable.exe"  >nul
-if errorlevel 1 ( echo   [X] MD Editor 복사 실패 & pause & exit /b 1 )
+copy /y "%SRC%\%A%" "%DEST%\MD-Notepad-portable.exe"  >nul
+if errorlevel 1 ( echo   [X] MD Notepad 복사 실패 & pause & exit /b 1 )
 copy /y "%SRC%\%B%" "%DEST%\MDSyncNote-portable.exe" >nul
 if errorlevel 1 ( echo   [X] MDSyncNote 복사 실패 & pause & exit /b 1 )
 
@@ -79,7 +79,7 @@ echo.
 echo ============================================
 echo   완료: %DEST%
 echo ============================================
-for %%f in ("%DEST%\MD-Editor-portable.exe" "%DEST%\MDSyncNote-portable.exe") do (
+for %%f in ("%DEST%\MD-Notepad-portable.exe" "%DEST%\MDSyncNote-portable.exe") do (
   for /f "delims=" %%v in ('powershell -NoProfile -Command "(Get-Item '%%~f').VersionInfo.FileVersion" 2^>nul') do (
     echo   %%~nxf   v%%v   %%~zf bytes
   )

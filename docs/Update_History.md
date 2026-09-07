@@ -1622,6 +1622,63 @@ MDXEditor 는 이걸 `GenericHTMLNode` 로 읽고 그대로 다시 쓰므로 왕
 
 ---
 
+## 2026-09-08 — v0.12.0 · MD Editor → **MD Notepad** · 창 제목이 드디어 바뀐다
+
+### 1. 창 제목이 안 바뀌던 진짜 이유 — 권한
+
+v0.10.0 에서 창 제목에 문서 제목을 넣었는데 **실제로는 바뀌지 않고 있었다.**
+
+Tauri v2 의 `core:default` 권한 묶음에는 `allow-title`(제목 **읽기**)만 있고
+**`allow-set-title`(쓰기)이 없다.** 그래서 `setTitle` 이 조용히 거절당했고,
+우리 코드는 `.catch(() => {})` 로 그 오류를 삼키고 있었다.
+
+두 앱의 `capabilities/default.json` 에 `core:window:allow-set-title` 을 더했다.
+그리고 **오류를 더 이상 삼키지 않는다** — 막히면 `.mdlog` 에 남는다.
+말없이 실패하는 코드가 이 문제를 며칠 숨겼다.
+
+### 2. 이름을 MD Notepad 로
+
+**보이는 곳은 전부** 바꿨다 — 창 제목, 작업 표시줄, 연결 프로그램 목록의
+`FriendlyAppName`, 우클릭 메뉴 "MD Notepad로 열기", MDSyncNote 트리 메뉴,
+빌드·배포 스크립트의 portable exe 이름(`MD-Notepad-portable.exe`).
+
+**일부러 그대로 둔 것** — 바꾸면 쓰던 것이 미아가 되기 때문이다.
+
+| 그대로 | 왜 |
+|---|---|
+| 레지스트리 키 `MDEditor.md` · `MDEditor.Open` | 바꾸면 예전 빌드로 해 둔 파일 연결이 미아가 된다 |
+| 설정 키 `md-editor-settings` | 바꾸면 쓰던 설정이 사라진다 |
+| 패키지·폴더 이름 `md-editor`, 원본 exe `md-editor.exe` | 안에서만 쓰는 이름이다 |
+
+MDSyncNote 의 "MD Notepad 로 열기" 는 **새 이름을 먼저 찾고 옛 이름도 본다**
+(`MD-Notepad-portable.exe` → `md-notepad.exe` → `md-editor.exe` →
+`MD-Editor-portable.exe`). 예전에 배포해 둔 자리에서도 열린다.
+
+### 3. 두 앱 제목에 버전
+
+```
+● 카운터 사양서 — MD Notepad v0.12.0
+● 03.CounterSpec.md — MDSyncNote v0.12.0
+```
+
+버전은 `vite` 의 `define` 으로 `package.json` 에서 박아 넣는다. 권한이 필요 없고,
+**빌드한 그 버전이 그대로** 가므로 어긋날 일이 없다. MDSyncNote 도 이제 창 제목에
+연 문서와 `●` 를 함께 보여 준다(전에는 `MDSyncNote` 고정이었다).
+
+### 검증
+
+| 대상 | 방법 | 결과 |
+|---|---|---|
+| 창 제목이 `● 문서제목 — MD Notepad v0.12.0` 모양인가 · 옛 이름이 남았는가 | 헤들리스 브라우저 2건 | 통과 |
+| 제목 · 표 셀 복사 · 탭 줄 · 색 (회귀) | 헤들리스 브라우저 28건 | 통과 |
+| 두 앱 빌드 · `cargo check` · `cargo test` | | 통과 |
+
+**아직 사람이 볼 것** — 진짜 창에서 작업 표시줄 제목이 실제로 바뀌는지.
+브라우저에서는 `document.title` 까지만 확인할 수 있고, 이번 문제의 핵심인
+Tauri 권한은 **실행 파일에서만** 드러난다.
+
+---
+
 ## 향후 계획 (기술 검토)
 
 *검토일: 2026-08-28 · 요청하신 기능들을 구현 난이도와 선행 조건 기준으로 정리*

@@ -3,8 +3,8 @@
 //! HKCU 만 건드리므로 관리자 권한이 필요 없다.
 //! Windows 10 부터는 "기본 앱"을 프로그램이 마음대로 바꿀 수 없다(설정에 해시가
 //! 걸려 있어 사용자가 직접 골라야만 한다). 그래서 여기서 할 수 있는 것은
-//!   1. 연결 프로그램 목록에 MD Editor 를 올리고,
-//!   2. .md 우클릭 메뉴에 "MD Editor로 열기" 를 넣는 것
+//!   1. 연결 프로그램 목록에 MD Notepad 를 올리고,
+//!   2. .md 우클릭 메뉴에 "MD Notepad로 열기" 를 넣는 것
 //! 까지다. 기본 앱 지정은 사용자가 한 번 눌러야 한다.
 
 use serde::Serialize;
@@ -24,7 +24,9 @@ pub struct AssocStatus {
 const EXTS: [&str; 3] = [".md", ".markdown", ".mdx"];
 const PROG_ID: &str = "MDEditor.md";
 const VERB: &str = "MDEditor.Open";
-const MENU_TEXT: &str = "MD Editor로 열기";
+// PROG_ID·VERB 는 레지스트리 **키 이름**이라 바꾸지 않는다 —
+// 바꾸면 예전 빌드로 해 둔 등록이 미아가 된다. 보이는 글자만 새 이름이다.
+const MENU_TEXT: &str = "MD Notepad로 열기";
 
 fn current_exe() -> Result<String, String> {
     std::env::current_exe()
@@ -100,7 +102,7 @@ mod win {
         // 2. Applications\<exe> — "연결 프로그램" 목록에 이름과 아이콘으로 보이게
         let app_key = format!(r"Applications\{app}");
         let (k, _) = c.create_subkey(&app_key).map_err(|e| e.to_string())?;
-        k.set_value("FriendlyAppName", &"MD Editor".to_string()).map_err(|e| e.to_string())?;
+        k.set_value("FriendlyAppName", &"MD Notepad".to_string()).map_err(|e| e.to_string())?;
         set_default(&c, &format!(r"{app_key}\shell\open\command"), &command)?;
         let (types, _) = c
             .create_subkey(format!(r"{app_key}\SupportedTypes"))

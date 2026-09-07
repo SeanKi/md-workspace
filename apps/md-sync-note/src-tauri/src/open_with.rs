@@ -1,4 +1,4 @@
-//! 노트를 MD Editor 로 넘겨 연다.
+//! 노트를 MD Notepad(옛 이름 MD Editor)로 넘겨 연다.
 //!
 //! 두 앱은 배포 스크립트가 **같은 폴더에** 넣는다(`deploy.bat` → `C:\utility\Markdown`).
 //! 그래서 지금 실행 파일 옆을 본다. 개발 중에는 `target/debug` 가 그 자리다.
@@ -9,7 +9,13 @@ use std::path::PathBuf;
 use std::process::Command;
 
 /// portable 빌드는 이름이 다르다 (`build-portable.bat` 참고)
-const CANDIDATES: [&str; 2] = ["md-editor.exe", "MD-Editor-portable.exe"];
+// 새 이름을 먼저 본다. 옛 이름도 남겨 둬야 예전에 배포해 둔 자리에서도 열린다
+const CANDIDATES: [&str; 4] = [
+    "MD-Notepad-portable.exe",
+    "md-notepad.exe",
+    "md-editor.exe",
+    "MD-Editor-portable.exe",
+];
 
 fn find_editor() -> Option<PathBuf> {
     let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
@@ -23,12 +29,12 @@ pub fn open_in_md_editor(path: String) -> Result<(), String> {
         return Err(format!("파일이 없습니다: {path}"));
     }
     let exe = find_editor().ok_or(
-        "MD Editor 실행 파일을 옆에서 찾지 못했습니다. 두 앱이 같은 폴더에 있어야 합니다.",
+        "MD Notepad 실행 파일을 옆에서 찾지 못했습니다. 두 앱이 같은 폴더에 있어야 합니다.",
     )?;
     Command::new(&exe)
         .arg(&file)
         .spawn()
-        .map_err(|e| format!("MD Editor 를 실행하지 못했습니다: {e}"))?;
+        .map_err(|e| format!("MD Notepad 를 실행하지 못했습니다: {e}"))?;
     Ok(())
 }
 

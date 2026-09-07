@@ -4,10 +4,10 @@ import { invoke, isTauri } from '@md/editor-core'
 
 const demo = () => Promise.reject(new Error('브라우저 데모 모드에서는 할 수 없습니다.'))
 
-/** MD Editor 에 경로를 넘겨 띄운다. 실행 파일은 이 앱 옆에 있어야 한다 */
+/** MD Notepad 에 경로를 넘겨 띄운다. 실행 파일은 이 앱 옆에 있어야 한다 */
 export const openInMdEditor = (path) => (isTauri ? invoke('open_in_md_editor', { path }) : demo())
 
-/** MD Editor 가 옆에 있는가. 없으면 메뉴에 항목을 내지 않는다 */
+/** MD Notepad 가 옆에 있는가. 없으면 메뉴에 항목을 내지 않는다 */
 export const hasMdEditor = () => (isTauri ? invoke('has_md_editor') : Promise.resolve(false))
 
 /**

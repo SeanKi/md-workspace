@@ -5,7 +5,7 @@ import { invoke, isTauri } from '@md/editor-core'
  * Windows 파일 연결 등록 UI.
  *
  * Win10 부터 "기본 앱"은 프로그램이 바꿀 수 없다. 등록으로 얻는 것은
- * 우클릭 메뉴 "MD Editor로 열기" 와 연결 프로그램 목록 노출까지다.
+ * 우클릭 메뉴 "MD Notepad로 열기" 와 연결 프로그램 목록 노출까지다.
  */
 export default function WinAssoc() {
   const [st, setSt] = useState(null)
@@ -42,7 +42,7 @@ export default function WinAssoc() {
       </button>
       <span className="hint">
         {st?.registered
-          ? '등록됨 — 탐색기에서 .md 우클릭 → “MD Editor로 열기”.'
+          ? '등록됨 — 탐색기에서 .md 우클릭 → “MD Notepad로 열기”.'
           : stale
             ? '다른 빌드로 등록돼 있습니다. “다시 등록”을 누르세요.'
             : '.md · .markdown · .mdx 우클릭 메뉴와 연결 프로그램 목록에 추가합니다.'}

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@md/editor-core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { confirm } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy } from '@md/editor-core'
+import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy, note } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -81,9 +81,11 @@ export default function App() {
   /* ---------- 창 제목 ---------- */
 
   useEffect(() => {
-    const full = `${active?.dirty ? '● ' : ''}${title} — MD Editor`
+    const full = `${active?.dirty ? '● ' : ''}${title} — MD Notepad v${__APP_VERSION__}`
     document.title = full
-    if (isTauri) getCurrentWindow().setTitle(full).catch(() => {})
+    // 창 제목을 바꾸려면 `core:window:allow-set-title` 이 있어야 한다.
+    // core:default 에는 읽기(allow-title)만 있다 — 없으면 조용히 막히므로 남겨서 본다
+    if (isTauri) getCurrentWindow().setTitle(full).catch((e) => note(`창 제목 실패: ${e}`))
   }, [title, active?.dirty])
 
   /* ---------- 알림 ---------- */
