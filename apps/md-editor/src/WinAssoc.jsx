@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 /**
  * Windows 파일 연결 등록 UI.

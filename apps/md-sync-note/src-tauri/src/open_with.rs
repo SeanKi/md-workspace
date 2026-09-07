@@ -16,7 +16,7 @@ fn find_editor() -> Option<PathBuf> {
     CANDIDATES.iter().map(|n| dir.join(n)).find(|p| p.is_file())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_in_md_editor(path: String) -> Result<(), String> {
     let file = PathBuf::from(&path);
     if !file.is_file() {

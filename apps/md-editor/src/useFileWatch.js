@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 /**
  * 열려 있는 파일이 밖에서 바뀌면 알려 준다.

@@ -25,6 +25,9 @@ pub fn run() {
             config::config_load,
             config::config_save,
             config::config_path,
+            md_core::diag::log_write,
+            md_core::diag::log_dir,
+            md_core::diag::log_tail,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

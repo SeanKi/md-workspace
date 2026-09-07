@@ -1,8 +1,12 @@
-import React from 'react'
-import { normalizeImageDir } from '@md/editor-core'
+import React, { useEffect, useState } from 'react'
+import { normalizeImageDir, logDir } from '@md/editor-core'
 
 /** 톱니바퀴를 눌렀을 때 나오는 설정 줄. */
 export default function SettingsBar({ settings, onChange, opsFallbackSec, configPath }) {
+  // 화면이 멎었을 때 볼 기록이 어디에 쌓이는지 알려 준다 (평소엔 볼 일이 없다)
+  const [logPath, setLogPath] = useState('')
+  useEffect(() => { logDir().then(setLogPath).catch(() => {}) }, [])
+
   return (
     <div className="settings">
       <label>
@@ -38,6 +42,11 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
         <span className="hint">
           설정과 저장소 목록은 <code>{configPath}</code> 에 있습니다 — 메모장으로 열어 고칠 수 있습니다
           (앱을 닫은 뒤에).
+        </span>
+      )}
+      {logPath && (
+        <span className="hint">
+          화면이 멎었던 기록은 <code>{logPath}</code> 에 날짜별로 쌓입니다 (숨김 폴더, 2주 뒤 자동 삭제).
         </span>
       )}
     </div>

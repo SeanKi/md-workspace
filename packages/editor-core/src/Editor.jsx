@@ -14,6 +14,7 @@ import { mermaidDescriptor, InsertMermaid } from './MermaidBlock.jsx'
 import { tableCellBreakPlugin } from './tableCellBreak.jsx'
 import { uploadImage, previewImage } from './images.js'
 import { useTableCellSelect } from './tableSelect.js'
+import { TextColor, BackColor } from './colorTools.jsx'
 
 export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
   useTableCellSelect()
@@ -48,6 +49,9 @@ export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
           {/* 취소선만 쓴다. 위첨자·아래첨자는 마크다운이 아니라 <sup>·<sub> 태그로 나가서
               다른 도구에서 그대로 보인다 */}
           <StrikeThroughSupSubToggles options={['Strikethrough']} />
+          {/* 색은 마크다운에 없다. 인라인 HTML(`<span style>`)로 넣는다 */}
+          <TextColor />
+          <BackColor />
           <Separator />
           <BlockTypeSelect />
           <ListsToggle />

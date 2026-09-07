@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@md/editor-core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { confirm } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, loadSettings, saveSettings } from '@md/editor-core'
+import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -13,6 +13,8 @@ import ReloadDialog from './ReloadDialog.jsx'
 import { OPENABLE, baseName, docTitle } from './paths.js'
 
 const SETTINGS_KEY = 'md-editor-settings'
+/** 타이핑이 멎고 이만큼 지나면 제목을 다시 센다 */
+const TITLE_MS = 500
 
 let seq = 0
 const newTab = (path = null, content = '') => ({
@@ -29,9 +31,36 @@ export default function App() {
 
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0]
 
+  /*
+   * 편집 중인 내용은 **상태가 아니라 ref** 에 둔다.
+   *
+   * 글자 하나마다 setState 를 하면 앱 전체가 다시 그려진다. 268KB 문서에서 재어 보니
+   * 그것만으로 **한 글자에 0.35초**가 더 들었다(1.02초 → 0.66초). 화면에 보이는 것은
+   * 제목과 ● 뿐이므로 그 둘만 상태로 두고, 내용은 저장할 때 여기서 꺼낸다.
+   */
+  const liveRef = useRef(new Map())
+  const liveOf = useCallback((t) => (t ? liveRef.current.get(t.id) ?? t.content : ''), [])
+
   // 문서 제목 — 첫 `# 제목`, 없으면 파일 이름.
   // 화면에는 제목줄을 두지 않는다. 이 값이 가는 곳은 **창 제목(작업 표시줄)** 과 탭이다
-  const title = docTitle(active?.content, active?.path)
+  const [titles, setTitles] = useState({})
+  const titleOf = useCallback(
+    (t) => titles[t.id] ?? docTitle(t.content, t.path),
+    [titles],
+  )
+  const title = active ? titleOf(active) : '제목 없음'
+
+  // 제목은 자주 바뀌지 않는다. 타이핑이 멎은 뒤에 한 번만 센다
+  const titleTimer = useRef(0)
+  const bumpTitle = useCallback(() => {
+    clearTimeout(titleTimer.current)
+    titleTimer.current = setTimeout(() => {
+      const t = activeRef.current
+      if (!t) return
+      const next = docTitle(liveRef.current.get(t.id) ?? t.content, t.path)
+      setTitles((m) => (m[t.id] === next ? m : { ...m, [t.id]: next }))
+    }, TITLE_MS)
+  }, [])
 
   // 이미지 핸들러가 항상 최신 문서 경로와 설정을 보도록 ref 로 전달
   const ctxRef = useRef({ path: null, imageDir: 'images' })
@@ -42,6 +71,12 @@ export default function App() {
   tabsRef.current = tabs
   const activeRef = useRef(active)
   activeRef.current = active
+
+  // 화면이 멎는 상황을 기록한다 (숨김 폴더 `.mdlog`)
+  useEffect(() => startDiag('md-editor'), [])
+
+  // 오래 걸리는 일이 있으면 무엇을 하는 중인지 말해 준다 (멎은 것으로 오해하지 않게)
+  const busy = useBusy()
 
   /* ---------- 창 제목 ---------- */
 
@@ -63,11 +98,11 @@ export default function App() {
   /* ---------- 파일 ---------- */
 
   const { openPath, openDialog, saveActive } =
-    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say })
+    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say, liveOf })
 
   /* ---------- 외부 변경 감지 ---------- */
 
-  const { conflicts, resolveConflict } = useExternalChanges({ tabs, tabsRef, setTabs, say })
+  const { conflicts, resolveConflict } = useExternalChanges({ tabs, tabsRef, setTabs, say, liveOf, liveRef })
 
   /* ---------- 탭 ---------- */
 
@@ -86,6 +121,7 @@ export default function App() {
         : window.confirm('변경 사항을 버릴까요?')
       if (!ok) return
     }
+    liveRef.current.delete(id)
     setTabs((ts) => {
       const rest = ts.filter((x) => x.id !== id)
       if (rest.length === 0) {
@@ -106,11 +142,14 @@ export default function App() {
   // 저장 한 번에 파일이 통째로 다시 쓰인다(물결·밑줄이 이스케이프된다).
   const onEditorChange = useCallback((md, initialNormalize) => {
     const t = activeRef.current
-    if (!t || md === t.content) return
-    setTabs((ts) => ts.map((x) => (
-      x.id === t.id ? { ...x, content: md, dirty: initialNormalize ? x.dirty : true } : x
-    )))
-  }, [])
+    if (!t || md === liveOf(t)) return
+    liveRef.current.set(t.id, md)          // 내용은 여기까지. 다시 그리지 않는다
+    bumpTitle()
+    // ● 는 한 번만 켜면 된다. 매번 켜면 그때마다 앱이 다시 그려진다
+    if (!initialNormalize && !t.dirty) {
+      setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, dirty: true } : x)))
+    }
+  }, [liveOf, bumpTitle])
 
   /* ---------- 드래그 앤 드롭 (상단에 놓아야 열린다) ---------- */
 
@@ -164,7 +203,7 @@ export default function App() {
       >
         <TabBar
           tabs={tabs}
-          titleOf={(t) => docTitle(t.content, t.path)}
+          titleOf={titleOf}
           activeId={activeId}
           onSelect={setActiveId}
           onClose={closeTab}
@@ -195,7 +234,8 @@ export default function App() {
             : '↑ 맨 위 탭 줄에 놓으세요'}
         </div>
       )}
-      {notice && <div className="drop-hint warn">{notice}</div>}
+      {busy && <div className="drop-hint">{busy}</div>}
+      {!busy && notice && <div className="drop-hint warn">{notice}</div>}
 
       {conflicts.length > 0 && (
         <ReloadDialog

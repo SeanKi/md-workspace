@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 import { baseName } from './repos.js'
 import { dirOf } from './fileOps.js'
 

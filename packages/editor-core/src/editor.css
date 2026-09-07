@@ -374,3 +374,42 @@ td.md-cell-sel, th.md-cell-sel { background-color: #cfe0ff !important; }
   pointer-events: none;
   z-index: 200;
 }
+
+/* --- 글자색 · 배경색 (colorTools.jsx) --- */
+
+.color-tool { position: relative; display: inline-flex; }
+/* 글자 밑에 지금 색을 띠로 보여준다 — 무슨 단추인지 한눈에 알아야 한다 */
+.color-glyph { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1; }
+.color-glyph i { display: block; width: 14px; height: 3px; border-radius: 1px; }
+
+/* 툴바 밖(body)에 그린다. 툴바 안에 두면 넘침 처리에 잘린다 */
+.color-pop {
+  position: fixed;
+  z-index: 300;
+  display: grid;
+  grid-template-columns: repeat(4, 22px);
+  gap: 5px;
+  padding: 7px;
+  background: #fff;
+  border: 1px solid #d8dce2;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .14);
+}
+.color-pop button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, .14);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.color-pop button:hover { outline: 2px solid #2563eb; outline-offset: 1px; }
+.color-pop .color-clear {
+  grid-column: 1 / -1;
+  width: auto;
+  height: 22px;
+  font: inherit;
+  font-size: 11px;
+  color: #5a616a;
+  background: #f3f4f6;
+}

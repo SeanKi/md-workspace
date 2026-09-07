@@ -1,9 +1,13 @@
-import React from 'react'
-import { normalizeImageDir } from '@md/editor-core'
+import React, { useEffect, useState } from 'react'
+import { normalizeImageDir, logDir } from '@md/editor-core'
 import WinAssoc from './WinAssoc.jsx'
 import SavePdf from './SavePdf.jsx'
 
 export default function SettingsBar({ settings, onChange, path }) {
+  // 화면이 멎었을 때 볼 기록이 어디에 쌓이는지 (평소엔 볼 일이 없다)
+  const [logPath, setLogPath] = useState('')
+  useEffect(() => { logDir().then(setLogPath).catch(() => {}) }, [])
+
   const label = normalizeImageDir(settings.imageDir) || '(문서와 같은 폴더)'
   return (
     <div className="settings">
@@ -36,6 +40,14 @@ export default function SettingsBar({ settings, onChange, path }) {
       </div>
       <SavePdf path={path} />
       <WinAssoc />
+      {logPath && (
+        <div className="row">
+          <span className="hint">
+            화면이 멎었던 기록은 <code>{logPath}</code> 에 날짜별로 쌓입니다
+            (숨김 폴더, 2주 뒤 자동 삭제).
+          </span>
+        </div>
+      )}
     </div>
   )
 }

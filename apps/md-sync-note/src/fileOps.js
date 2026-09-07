@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 /** Windows 파일 이름에 못 쓰는 글자. 미리 걸러야 Rust 까지 갔다가 실패하지 않는다. */
 const BAD_NAME = /[\\/:*?"<>|]/

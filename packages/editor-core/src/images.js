@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './diag.js'
 import { isTauri } from './tauriBridge.js'
 
 const MIME = {

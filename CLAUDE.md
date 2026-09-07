@@ -125,6 +125,33 @@ lexical 편집기**라(`plugins/table/TableEditor.js`) 브라우저 선택이 �
 
 한 셀 안에서만 끄는 동안은 **건드리지 않아야 한다.** 그래야 평소의 글자 선택이 산다.
 
+### 무거운 Rust 커맨드는 `#[tauri::command(async)]` 다
+
+Tauri 는 `#[tauri::command]` 를 **메인 스레드에서** 돌린다(`ExecutionContext::Blocking`).
+파일 I/O · 폴더 걷기 · 저장소 검색 · `git commit` 대기가 전부 창을 붙잡는다.
+`(async)` 를 붙이면 스레드 풀(`sync_threadpool`)로 간다 — 함수는 그대로 동기 함수다.
+
+새 커맨드가 **조금이라도 기다리는 일**을 한다면 `(async)` 를 붙일 것.
+화면을 만지는 것(예: `save_pdf` 의 WebviewWindow)만 메인 스레드에 둔다.
+
+### 편집 중인 내용은 상태가 아니라 ref 에 둔다
+
+`App.jsx` (두 앱). `onChange` 마다 문서를 상태에 넣으면 글자 하나에 앱 전체가 다시
+그려진다. 268KB 문서에서 재어 보니 **그것만으로 한 글자에 0.35초**가 더 들었다.
+
+화면에 보이는 것은 제목과 `●` 뿐이다. `●` 는 꺼짐→켜짐 **한 번만** 상태를 바꾸고,
+제목은 타이핑이 멎고 0.5초 뒤에 다시 센다. 저장은 ref 에서 꺼내 쓴다.
+
+남은 비용(한 글자 0.59초)은 **MDXEditor 가 글자마다 문서 전체를 마크다운으로 다시
+쓰는 것**이라 우리가 못 고친다(코어의 update listener). 원본 모드는 0.014초다.
+
+### 멎으면 기록이 남는다 — `.mdlog`
+
+`md-core/src/diag.rs` + `editor-core/src/diag.js`. 심장 박동이 600ms 넘게 늦으면
+직전 호출과 함께 적고, 300ms 넘는 커맨드도 적는다. 실행 파일 옆 숨김 폴더에
+날짜별로 쌓이고 2주 뒤 스스로 지워진다. **Rust 는 `invoke` 대신
+`@md/editor-core` 의 `invoke` 로 부른다** — 그래야 시간이 재진다.
+
 ### 문서 전환은 `key=` 로 리마운트한다
 
 `<Editor key={tabId} markdown={...} />`. 하나의 인스턴스에 `setMarkdown` 을 호출하면
@@ -257,6 +284,7 @@ MDXEditor 툴바 버튼은 `title` 이 아니라 **`aria-label`** 로 찾아야 
 
 Phase 1 의 절반을 넘겼다 (v0.9.0 — 창 나누기 · 취소선 · 트리 파일 CRUD 완결.
 v0.9.1 — 표 셀 경계를 지켜 정규화. v0.10.0 — 문서 제목을 창·탭에 · 표에서 여러 셀
-끌어 복사 · 트리 우클릭(MD Editor 로 열기 · 경로 복사) · 검색 결과 수정일자).
+끌어 복사 · 트리 우클릭 · 검색 결과 수정일자 · 설정을 INI 로.
+v0.11.0 — 얼어붙는 원인 둘을 재서 고침 · 글자색/배경색 · 좌우 비교 · 트리 층 맞춤).
 다음 우선순위는 **MDSyncNote 에 File Watcher 붙이기** (MD Editor 는 v0.5.0 에서 끝났다).
 자세한 것은 `docs/Implementation_Status.md` 마지막 절.

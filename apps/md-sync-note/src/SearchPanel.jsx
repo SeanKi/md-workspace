@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 const DEBOUNCE = 220   // 타이핑이 멎으면 찾는다
 

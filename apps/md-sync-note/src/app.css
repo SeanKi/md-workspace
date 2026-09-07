@@ -52,7 +52,7 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #333;
   background: #eceff3;
@@ -64,7 +64,7 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 .repo-x:hover { background: #d5dae1; color: #333; }
 .repo-path {
   padding: 0 8px 5px 22px;
-  font-size: 10px;
+  font-size: 11px;
   color: #9aa0a8;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -100,8 +100,8 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  font-size: 12px;
+  padding: 4px 8px;
+  font-size: 13.5px;
   color: #3c4149;
   cursor: pointer;
   white-space: nowrap;
@@ -110,13 +110,14 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 }
 .node:hover { background: #e6eaf0; }
 .node.on { background: #dbe6fb; color: #14346b; font-weight: 600; }
-.node .caret { width: 10px; color: #98a0aa; font-size: 9px; }
-.node .ico { font-size: 11px; }
-.node.muted, .node.err { cursor: default; font-size: 11px; }
+/* 화살표 칸 폭은 TreeNode.jsx 의 CARET 과 짝이다. 함께 고칠 것 */
+.node .caret { width: 10px; flex: none; color: #98a0aa; font-size: 10px; }
+.node .ico { flex: none; font-size: 12.5px; }
+.node.muted, .node.err { cursor: default; font-size: 12px; }
 .node.muted { color: #a4aab2; }
 .node.muted:hover, .node.err:hover { background: transparent; }
 .node.err { color: #b91c1c; white-space: normal; }
-.node.ok { color: #15803d; white-space: normal; font-size: 11px; cursor: default; }
+.node.ok { color: #15803d; white-space: normal; font-size: 12px; cursor: default; }
 .node.ok:hover { background: transparent; }
 /* 포커스가 보여야 F2 가 어디에 걸리는지 안다 */
 .node:focus-visible { outline: 2px solid #93b4f5; outline-offset: -2px; }

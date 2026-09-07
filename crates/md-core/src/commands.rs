@@ -7,12 +7,18 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::path::Path;
 
-#[tauri::command]
+// 무거운 일은 **스레드 풀로 보낸다** — `#[tauri::command(async)]`.
+// Tauri 는 그냥 `#[tauri::command]` 를 **메인 스레드에서** 돌린다
+// (매크로의 ExecutionContext::Blocking → "sync"). 파일을 읽고 쓰는 동안 창이
+// 통째로 멎고, 글자를 치던 중이면 한글 조합 글자까지 화면에 안 나타난다.
+// `(async)` 를 붙이면 "sync_threadpool" 로 간다. 함수는 그대로 동기 함수다.
+
+#[tauri::command(async)]
 pub fn read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn write_file(path: String, contents: String) -> Result<(), String> {
     if let Some(dir) = Path::new(&path).parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -25,7 +31,7 @@ pub fn write_file(path: String, contents: String) -> Result<(), String> {
 }
 
 /// 붙여넣은 이미지를 저장한다. 상위 폴더가 없으면 만든다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_binary_b64(path: String, b64: String) -> Result<(), String> {
     let bytes = STANDARD.decode(b64.as_bytes()).map_err(|e| e.to_string())?;
     if let Some(dir) = Path::new(&path).parent() {
@@ -35,7 +41,7 @@ pub fn save_binary_b64(path: String, b64: String) -> Result<(), String> {
 }
 
 /// WebView 는 file:// 을 직접 읽지 못하므로 화면 표시용으로 바이트를 넘겨준다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn read_binary_base64(path: String) -> Result<String, String> {
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     Ok(STANDARD.encode(bytes))
@@ -50,7 +56,7 @@ pub struct DirEntry {
 
 /// 폴더 한 단계만 읽는다. 트리는 펼칠 때마다 이 커맨드를 호출한다(지연 로딩).
 /// 숨김 항목은 건너뛰고, 파일은 마크다운만 돌려준다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
     let mut out = Vec::new();
     for entry in std::fs::read_dir(&path).map_err(|e| e.to_string())? {
@@ -91,14 +97,14 @@ fn must_not_exist(path: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_dir(path: String) -> Result<(), String> {
     must_not_exist(&path)?;
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())
 }
 
 /// 빈 노트를 만든다. 상위 폴더가 없으면 함께 만든다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_file(path: String, contents: Option<String>) -> Result<(), String> {
     must_not_exist(&path)?;
     if let Some(dir) = Path::new(&path).parent() {
@@ -109,7 +115,7 @@ pub fn create_file(path: String, contents: Option<String>) -> Result<(), String>
 
 /// 이름 바꾸기 · 옮기기. 대상이 이미 있으면 거부한다 —
 /// std::fs::rename 은 조용히 덮어쓰기 때문에 여기서 막아야 한다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn rename_path(from: String, to: String) -> Result<(), String> {
     if !Path::new(&from).exists() {
         return Err("원본이 없습니다.".into());
@@ -125,7 +131,7 @@ pub fn rename_path(from: String, to: String) -> Result<(), String> {
 }
 
 /// **휴지통으로** 보낸다. 영영 지우지 않는다 — 트리에서 잘못 누르는 일은 반드시 생긴다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_path(path: String) -> Result<(), String> {
     if !Path::new(&path).exists() {
         return Err("없는 경로입니다.".into());

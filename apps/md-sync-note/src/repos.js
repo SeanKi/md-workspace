@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 /* 저장소 = { id, name, kind, path }. 지금은 로컬 폴더만 지원한다.
    목록을 어디에 담는지는 `config.js` (실행 파일 옆 MDSyncNote.ini). */

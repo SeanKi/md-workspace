@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@md/editor-core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, normalizeForEditor, describeFixes } from '@md/editor-core'
+import { SplitEditor, isTauri, normalizeForEditor, describeFixes, bigDocNotice, startDiag, useBusy } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import SearchPanel from './SearchPanel.jsx'
 import SideSplit, { SIDE_DEFAULT } from './SideSplit.jsx'
@@ -35,6 +35,17 @@ export default function App() {
   const docRef = useRef(doc)
   docRef.current = doc
 
+  /*
+   * 편집 중인 내용은 **상태가 아니라 ref** 에 둔다.
+   * 글자 하나마다 setState 를 하면 앱 전체가 다시 그려진다 — 큰 문서에서 재어 보니
+   * 그것만으로 한 글자에 0.35초가 더 들었다. 화면에 보이는 것은 파일 이름과 ● 뿐이다.
+   */
+  const liveRef = useRef('')
+  const liveDoc = useCallback(() => {
+    const d = docRef.current
+    return d ? { ...d, content: liveRef.current || d.content } : null
+  }, [])
+
   // 자동 저장 타이머는 만들어진 시점의 클로저를 붙잡고 있으므로,
   // 커밋에 필요한 최신 설정·저장소 목록은 ref 로 본다.
   const cfgRef = useRef({ settings, repos })
@@ -42,6 +53,12 @@ export default function App() {
 
   // 트리에서 한 파일 조작을 모았다가 자동 저장 박자에 맞춰 커밋한다
   const { note: noteOp, flush: flushOps } = usePendingCommits({ cfgRef, setStatus, setGitTick })
+
+  // 화면이 멎는 상황을 기록한다 (숨김 폴더 `.mdlog`)
+  useEffect(() => startDiag('md-sync-note'), [])
+
+  // 오래 걸리는 일이 있으면 무엇을 하는 중인지 말해 준다 (멎은 것으로 오해하지 않게)
+  const busy = useBusy()
 
   /* ---------- 환경 설정 파일 (실행 파일 옆 MDSyncNote.ini) ---------- */
 
@@ -84,13 +101,14 @@ export default function App() {
   /* ---------- 문서 ---------- */
 
   const openDoc = useCallback(async (path, reveal) => {
-    if (docRef.current?.dirty) await persist(docRef.current)
+    if (docRef.current?.dirty) await persist(liveDoc())
     try {
       const raw = isTauri ? await invoke('read_file', { path }) : `# ${baseName(path)}\n\n데모 문서입니다.`
       // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
       const { text: content, count, stat } = normalizeForEditor(raw)
+      liveRef.current = content
       setDoc({ path, content, dirty: false })
-      setStatus(count ? `${describeFixes(stat)}를 고쳐 열었습니다 (저장 시 반영)` : '')
+      setStatus(count ? `${describeFixes(stat)}를 고쳐 열었습니다 (저장 시 반영)` : bigDocNotice(content))
       // 검색 결과로 열었으면 그 자리로 데려간다 (에디터가 그려질 때까지 기다린다)
       if (reveal) revealText(reveal)
     } catch (e) {
@@ -132,15 +150,17 @@ export default function App() {
   // initialNormalize 는 "파일을 연 직후 MDXEditor 가 스스로 다듬은 것"이라는 표시다.
   // 이걸 편집으로 치면 자동 저장이 손대지도 않은 파일을 다시 써 버린다.
   const onChange = useCallback((md, initialNormalize) => {
-    setDoc((d) => (
-      !d || md === d.content ? d : { ...d, content: md, dirty: initialNormalize ? d.dirty : true }
-    ))
+    const d = docRef.current
+    if (!d || md === liveRef.current) return
+    liveRef.current = md                      // 내용은 여기까지. 다시 그리지 않는다
+    // ● 는 한 번만 켜면 된다. 매번 켜면 그때마다 앱이 다시 그려진다
+    if (!initialNormalize && !d.dirty) setDoc((cur) => (cur ? { ...cur, dirty: true } : cur))
   }, [])
 
   /** 저장 단추와 Ctrl+S. 파일 조작을 먼저 그 내용대로 커밋하고 문서를 저장한다 */
   async function saveNow() {
     await flushOps()
-    await persist(docRef.current)
+    await persist(liveDoc())
   }
 
   /**
@@ -171,7 +191,7 @@ export default function App() {
     const t = setInterval(async () => {
       // 파일 조작을 먼저 커밋해야 "무엇이 어떻게 바뀌었는지" 가 저장 커밋에 섞이지 않는다
       await flushOps()
-      if (sec > 0) await persist(docRef.current)
+      if (sec > 0) await persist(liveDoc())
     }, every * 1000)
     return () => clearInterval(t)
   }, [settings.autoSaveSec])
@@ -222,7 +242,7 @@ export default function App() {
           {doc?.dirty && <span className="dot">●</span>}
           <span className="path">{doc?.path ?? ''}</span>
           <span className="spacer" />
-          <span className="status">{status}</span>
+          <span className="status">{busy || status}</span>
           <button onClick={saveNow} title="Ctrl+S">저장</button>
           <button onClick={() => setShowSettings((v) => !v)} title="설정">⚙</button>
         </div>

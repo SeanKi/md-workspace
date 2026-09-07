@@ -17,6 +17,7 @@
 //! ```
 
 pub mod commands;
+pub mod diag;
 pub mod pdf;
 pub mod search;
 pub mod watcher;

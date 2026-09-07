@@ -10,8 +10,7 @@
  * 브라우저 데모 모드에는 실행 파일이 없다. 그때만 localStorage 를 쓴다.
  */
 
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 const LS_REPOS = 'md-sync-note-repos'
 const LS_SETTINGS = 'md-sync-note-settings'

@@ -65,7 +65,7 @@ fn same_path(a: &str, b: &str) -> bool {
     norm(a) == norm(b)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn git_status(path: String) -> GitStatus {
     if !has_git() {
         return GitStatus::default();
@@ -98,7 +98,7 @@ pub fn git_status(path: String) -> GitStatus {
 
 /// 저장소로 만들고 첫 커밋까지 한다.
 /// 커밋 이름/메일이 없으면 이 저장소에만 임시값을 넣는다(전역 설정은 건드리지 않는다).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn git_init(path: String) -> Result<String, String> {
     if !has_git() {
         return Err("git 을 찾을 수 없습니다. Git for Windows 를 설치해 주세요.".into());
@@ -153,7 +153,7 @@ pub struct CommitResult {
 
 /// 저장 후 호출한다. 변경이 없으면 아무것도 하지 않는다.
 /// 저장소가 아니거나 git 이 없으면 조용히 넘어간다(저장 자체는 이미 끝났다).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn git_commit(path: String, message: String) -> Result<CommitResult, String> {
     if !has_git() || repo_root(&path).is_none() {
         return Ok(CommitResult { committed: false, detail: String::new() });

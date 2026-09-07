@@ -1,7 +1,7 @@
 {
   "name": "@md/editor-core",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -15,6 +15,8 @@
     "@tauri-apps/api": "^2",
     "mermaid": "^11.17.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "@mdxeditor/gurx": "^1.2.4",
+    "@lexical/utils": "^0.48.0"
   }
 }

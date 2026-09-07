@@ -1,7 +1,6 @@
 /** 노트를 바깥으로 내보내는 것들 — 다른 앱으로 열기, 경로를 클립보드에. */
 
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@md/editor-core'
+import { invoke, isTauri } from '@md/editor-core'
 
 const demo = () => Promise.reject(new Error('브라우저 데모 모드에서는 할 수 없습니다.'))
 

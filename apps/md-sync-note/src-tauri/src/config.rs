@@ -70,7 +70,7 @@ pub fn config_path() -> Result<String, String> {
 }
 
 /// 없으면 빈 것을 돌려준다 — 처음 실행이 오류일 이유가 없다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn config_load() -> Result<Ini, String> {
     let p = path_of()?;
     match std::fs::read_to_string(&p) {
@@ -81,7 +81,7 @@ pub fn config_load() -> Result<Ini, String> {
 }
 
 /// 통째로 다시 쓴다. 설정은 작고, 조각내 고치면 사람이 손댄 파일과 어긋난다.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn config_save(data: Ini) -> Result<String, String> {
     let p = path_of()?;
     std::fs::write(&p, render(&data))

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@md/editor-core'
 import { normalizeForEditor } from '@md/editor-core'
 import useFileWatch from './useFileWatch.js'
 import { baseName } from './paths.js'
@@ -12,7 +12,7 @@ import { baseName } from './paths.js'
  *
  * @returns {{ conflicts: string[], resolveConflict: (path, 'reload'|'overwrite') => void }}
  */
-export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
+export default function useExternalChanges({ tabs, tabsRef, setTabs, say, liveOf, liveRef }) {
   const [conflicts, setConflicts] = useState([])
 
   /** 파일을 다시 읽어 탭에 넣는다. 이미 읽어 둔 내용이 있으면 그걸 쓴다. */
@@ -21,14 +21,18 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
       const text = known ?? normalizeForEditor(await invoke('read_file', { path })).text
       // key 를 바꿔 에디터를 다시 마운트한다. 한 인스턴스에 새 내용을 밀어 넣으면
       // 되돌리기 이력이 엉킨다 (CLAUDE.md 참고)
-      setTabs((ts) => ts.map((x) => (
-        x.path === path ? { ...x, id: `${x.id}r${Date.now()}`, content: text, dirty: false } : x
-      )))
+      setTabs((ts) => ts.map((x) => {
+        if (x.path !== path) return x
+        const id = `${x.id}r${Date.now()}`
+        liveRef.current.delete(x.id)
+        liveRef.current.set(id, text)
+        return { ...x, id, content: text, dirty: false }
+      }))
       say(`${baseName(path)} 을(를) 다시 읽었습니다`)
     } catch (e) {
       say(`다시 읽을 수 없습니다: ${e}`)
     }
-  }, [setTabs, say])
+  }, [setTabs, say, liveRef])
 
   const onExternalChange = useCallback(async (path) => {
     const t = tabsRef.current.find((x) => x.path === path)
@@ -44,9 +48,9 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
       return
     }
     setConflicts((c) => (
-      c.some((x) => x.path === path) ? c : [...c, { path, text, mine: t.content }]
+      c.some((x) => x.path === path) ? c : [...c, { path, text, mine: liveOf(t) }]
     ))
-  }, [tabsRef, reloadTab, say])
+  }, [tabsRef, reloadTab, say, liveOf])
 
   useFileWatch(tabs.map((t) => t.path), onExternalChange)
 
@@ -58,13 +62,13 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, say }) {
     const t = tabsRef.current.find((x) => x.path === path)
     if (!t) return
     try {
-      await invoke('write_file', { path, contents: t.content })
+      await invoke('write_file', { path, contents: liveOf(t) })
       setTabs((ts) => ts.map((x) => (x.path === path ? { ...x, dirty: false } : x)))
       say(`${baseName(path)} 을(를) 내 내용으로 덮어썼습니다`)
     } catch (e) {
       say(`저장 실패: ${e}`)
     }
-  }, [conflicts, tabsRef, setTabs, reloadTab, say])
+  }, [conflicts, tabsRef, setTabs, reloadTab, say, liveOf])
 
   return { conflicts, resolveConflict }
 }

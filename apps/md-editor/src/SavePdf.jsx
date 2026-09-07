@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@md/editor-core'
 import { save } from '@tauri-apps/plugin-dialog'
 import { isTauri } from '@md/editor-core'
 import { baseName } from './paths.js'

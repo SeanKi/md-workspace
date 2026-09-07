@@ -112,7 +112,7 @@ fn score_of(name_hit: bool, line: &str) -> i32 {
     s
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn search_repo(root: String, query: String) -> Result<SearchResult, String> {
     let started = Instant::now();
     let needle = query.trim().to_lowercase();
