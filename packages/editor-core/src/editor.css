@@ -159,9 +159,19 @@ body {
 .prose h4 { font-size: 1.05em; margin: 1.4em 0 .4em; color: #37404a; }
 .prose h5, .prose h6 { font-size: 1em; margin: 1.2em 0 .3em; color: #5b646d; }
 
-/* --- 문단 · 목록 --- */
-.prose p { margin: 0 0 1.05em; }
-.prose ul, .prose ol { margin: 0 0 1.05em; padding-left: 1.7em; }
+/* --- 문단 · 목록 ---
+   문단 사이가 넓어 보인다는 말이 있어 좁혔다. 잰 값으로 적어 둔다
+   (글자 15px · 줄 높이 1.75 → 한 줄 26.25px 기준).
+
+     문단 → 문단   1.05em 일 때 42.0px = 줄의 160%  →  .6125em 로 35.4px = 135%
+     항목 → 항목   30.4px = 줄의 116% (그대로 둔다)
+
+   **문단이 목록 항목보다 좁아지면 안 된다.** 좁아지면 문단이 목록처럼 붙어 보여
+   글의 덩어리가 안 읽힌다. 125% 까지 내려 보니 목록과 2.4px 차이라 구분이 사라졌다.
+   135% 는 5.0px 차이로 문단이 덩어리로 읽히는 마지막 선이다. 더 내리려면 `li`
+   여백부터 줄여야 한다. */
+.prose p { margin: 0 0 .6125em; }
+.prose ul, .prose ol { margin: 0 0 .6125em; padding-left: 1.7em; }
 .prose li { margin: .28em 0; }
 .prose li > ul, .prose li > ol { margin: .28em 0; }
 
