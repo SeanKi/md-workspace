@@ -16,7 +16,7 @@ const SYNC_MS = 350
  * 그렇게 하면 커서와 되돌리기 이력이 통째로 날아간다. 그래서 내용은 언제나
  * "방금 고친 쪽 → 놀고 있는 쪽" 한 방향으로만 옮겨 담는다.
  */
-export default function SplitEditor({ markdown, onChange, ctxRef, wide }) {
+export default function SplitEditor({ markdown, onChange, ctxRef, wide, viewMode }) {
   const [ratio, setRatio] = useState(0)        // 0 이면 나누지 않은 상태
   const [dragging, setDragging] = useState(false)
 
@@ -106,7 +106,8 @@ export default function SplitEditor({ markdown, onChange, ctxRef, wide }) {
 
       <div className={paneClass + ' pane-top'} ref={boxTop}
            style={split ? { flexGrow: ratio } : undefined}>
-        <Editor markdown={markdown} onChange={onTop} ctxRef={ctxRef} editorRef={apiTop} />
+        <Editor markdown={markdown} onChange={onTop} ctxRef={ctxRef} editorRef={apiTop}
+                viewMode={viewMode} />
       </div>
 
       {split && (

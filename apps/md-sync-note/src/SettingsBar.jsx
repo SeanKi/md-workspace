@@ -37,6 +37,11 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
                onChange={(e) => onChange({ wideLayout: e.target.checked })} />
         본문 전체 폭
       </label>
+      <label className="check">
+        <input type="checkbox" checked={settings.bigDocSource !== false}
+               onChange={(e) => onChange({ bigDocSource: e.target.checked })} />
+        큰 문서(10만 자 이상)는 원본 모드로 열기
+      </label>
       <span className="hint">
         이미지: 비우거나 <code>.</code> 이면 문서와 같은 폴더 (현재
         <b> {normalizeImageDir(settings.imageDir) || '문서와 같은 폴더'}</b>).

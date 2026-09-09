@@ -15,10 +15,15 @@
 /** 이보다 길면 알린다 (글자 수) */
 export const BIG_DOC_CHARS = 100_000
 
+/** 이 문서를 처음 볼 모드. 큰 문서는 원본으로 연다 */
+export const initialViewMode = (text, useSourceForBig = true) => (
+  useSourceForBig && (text?.length ?? 0) >= BIG_DOC_CHARS ? 'source' : 'rich-text'
+)
+
 export function bigDocNotice(text) {
   const n = text?.length ?? 0
   if (n < BIG_DOC_CHARS) return ''
-  return `문서가 큽니다(약 ${Math.round(n / 1000)}천 자). `
-    + '위지윅은 글자마다 문서 전체를 다시 셈해 타이핑이 느립니다 — '
-    + '많이 고칠 때는 툴바 오른쪽 끝 원본 모드가 훨씬 빠릅니다.'
+  return `문서가 큽니다(약 ${Math.round(n / 1000)}천 자) — 원본 모드로 열었습니다. `
+    + '위지윅은 글자마다 문서 전체를 다시 셈해 한 글자에 0.6초가 듭니다(원본 모드는 0.014초). '
+    + '툴바 오른쪽 끝에서 언제든 바꿀 수 있습니다.'
 }

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@md/editor-core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, normalizeForEditor, describeFixes, bigDocNotice, startDiag, useBusy, note } from '@md/editor-core'
+import { SplitEditor, isTauri, normalizeForEditor, describeFixes, bigDocNotice, initialViewMode, startDiag, useBusy, note } from '@md/editor-core'
 import RepoTree from './RepoTree.jsx'
 import SearchPanel from './SearchPanel.jsx'
 import SideSplit, { SIDE_DEFAULT } from './SideSplit.jsx'
@@ -16,6 +16,8 @@ import { gitCommit, commitMessage } from './git.js'
 const DEFAULTS = {
   imageDir: 'images', autoSaveSec: 60, autoCommit: true, wideLayout: false,
   sideWidth: SIDE_DEFAULT,
+  // 큰 문서는 원본 모드로 연다 (위지윅은 한 글자에 0.6초가 든다 — `bigDoc.js`)
+  bigDocSource: true,
   // MD Notepad 실행 파일. 비우면 Rust 가 알아서 찾는다 (`open_with.rs`)
   editorPath: '',
 }
@@ -270,7 +272,8 @@ export default function App() {
 
         {doc
           ? <SplitEditor key={doc.path} markdown={doc.content} onChange={onChange}
-                         ctxRef={ctxRef} wide={settings.wideLayout} />
+                         ctxRef={ctxRef} wide={settings.wideLayout}
+                         viewMode={initialViewMode(doc.content, settings.bigDocSource)} />
           : (
             <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
               <div className="placeholder">왼쪽 트리에서 문서를 선택하면 여기에 열립니다.</div>

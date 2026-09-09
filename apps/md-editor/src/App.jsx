@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@md/editor-core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { confirm } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy, note } from '@md/editor-core'
+import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy, note, initialViewMode } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -13,6 +13,8 @@ import ReloadDialog from './ReloadDialog.jsx'
 import { OPENABLE, baseName, docTitle } from './paths.js'
 
 const SETTINGS_KEY = 'md-editor-settings'
+/** 큰 문서는 원본 모드로 연다 (위지윅은 한 글자에 0.6초가 든다 — `bigDoc.js`) */
+const DEFAULTS = { bigDocSource: true }
 /** 타이핑이 멎고 이만큼 지나면 제목을 다시 센다 */
 const TITLE_MS = 500
 
@@ -24,7 +26,7 @@ const newTab = (path = null, content = '') => ({
 export default function App() {
   const [tabs, setTabs] = useState(() => [newTab()])
   const [activeId, setActiveId] = useState('t1')
-  const [settings, setSettings] = useState(() => loadSettings(SETTINGS_KEY))
+  const [settings, setSettings] = useState(() => ({ ...DEFAULTS, ...loadSettings(SETTINGS_KEY) }))
   const [showSettings, setShowSettings] = useState(false)
   const [notice, setNotice] = useState('')
   const topRef = useRef(null)
@@ -224,6 +226,7 @@ export default function App() {
       <SplitEditor
         key={active.id}
         markdown={active.content}
+        viewMode={initialViewMode(active.content, settings.bigDocSource)}
         onChange={onEditorChange}
         ctxRef={ctxRef}
         wide={settings.wideLayout}

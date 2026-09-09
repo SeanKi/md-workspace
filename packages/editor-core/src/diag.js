@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 import { invoke as rawInvoke } from '@tauri-apps/api/core'
 import { isTauri } from './tauriBridge.js'
+import { startImeWatch } from './imeWatch.js'
 
 const BEAT_MS = 250          // 심장 박동 간격
 const STALL_MS = 600         // 이보다 늦으면 "멎었다" 로 본다
@@ -146,6 +147,8 @@ export function startDiag(name) {
     flush()
   }, BEAT_MS)
 
+  const stopIme = startImeWatch()   // 한글 조합이 제때 그려지는지도 함께 본다
+
   const onError = (e) => { push(`예외  ${e.message ?? e.reason ?? e}`); flush() }
   window.addEventListener('error', onError)
   window.addEventListener('unhandledrejection', onError)
@@ -154,6 +157,7 @@ export function startDiag(name) {
   push(`시작  ${name}`)
   return () => {
     clearInterval(beat)
+    stopIme()
     window.removeEventListener('error', onError)
     window.removeEventListener('unhandledrejection', onError)
     flush()

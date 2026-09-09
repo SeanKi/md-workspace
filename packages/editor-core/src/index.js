@@ -4,7 +4,7 @@ export { mermaidDescriptor, InsertMermaid } from './MermaidBlock.jsx'
 export { uploadImage, previewImage, normalizeImageDir, dirOf } from './images.js'
 export { loadSettings, saveSettings, DEFAULT_SETTINGS } from './settings.js'
 export { normalizeForEditor, describeFixes } from './normalizeMarkdown.js'
-export { bigDocNotice, BIG_DOC_CHARS } from './bigDoc.js'
+export { bigDocNotice, initialViewMode, BIG_DOC_CHARS } from './bigDoc.js'
 export { isTauri } from './tauriBridge.js'
 // Rust 커맨드는 이 invoke 로 부른다 — 느린 호출과 화면 멈춤을 기록한다 (diag.js)
 export { invoke, startDiag, note, flush as flushDiag, logDir, logTail, useBusy } from './diag.js'

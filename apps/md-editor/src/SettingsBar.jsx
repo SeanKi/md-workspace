@@ -38,6 +38,17 @@ export default function SettingsBar({ settings, onChange, path }) {
           끄면 인쇄물처럼 가운데 고정 폭(900px)으로 봅니다. 이 선택은 저장됩니다.
         </span>
       </div>
+      <div className="row">
+        <label className="check">
+          <input type="checkbox" checked={settings.bigDocSource !== false}
+                 onChange={(e) => onChange({ bigDocSource: e.target.checked })} />
+          큰 문서(10만 자 이상)는 원본 모드로 열기
+        </label>
+        <span className="hint">
+          위지윅은 글자마다 문서 전체를 다시 셈해 <b>한 글자에 0.6초</b>가 듭니다
+          (원본 모드는 0.014초). 툴바 오른쪽 끝에서 언제든 바꿀 수 있습니다.
+        </span>
+      </div>
       <SavePdf path={path} />
       <WinAssoc />
       {logPath && (

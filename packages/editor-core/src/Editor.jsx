@@ -16,7 +16,7 @@ import { uploadImage, previewImage } from './images.js'
 import { useTableCellSelect } from './tableSelect.js'
 import { TextColor, BackColor } from './colorTools.jsx'
 
-export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
+export default function Editor({ markdown, onChange, ctxRef, editorRef, viewMode = 'rich-text' }) {
   useTableCellSelect()
 
   // ctxRef 는 항상 최신 { path, imageDir } 을 들고 있으므로
@@ -39,7 +39,9 @@ export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
       },
     }),
     markdownShortcutPlugin(),
-    diffSourcePlugin({ viewMode: 'rich-text' }),
+    // 큰 문서는 원본 모드로 여는 길을 준다 — 위지윅은 글자마다 문서 전체를
+    // 다시 셈해서 한 글자에 0.6초가 든다(원본 모드는 0.014초). `bigDoc.js` 참고
+    diffSourcePlugin({ viewMode }),
     toolbarPlugin({
       toolbarContents: () => (
         <DiffSourceToggleWrapper>
@@ -65,7 +67,7 @@ export default function Editor({ markdown, onChange, ctxRef, editorRef }) {
         </DiffSourceToggleWrapper>
       ),
     }),
-  ], [ctxRef])
+  ], [ctxRef, viewMode])
 
   return (
     <MDXEditor
