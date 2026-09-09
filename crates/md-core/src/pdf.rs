@@ -14,8 +14,14 @@ const PAGE_H: f64 = 11.69;
 #[cfg(windows)]
 const MARGIN: f64 = 0.5;
 
+// **반드시 `(async)` 여야 한다.** 아래에서 `recv_timeout` 으로 기다리는데, 이 커맨드가
+// 메인 스레드에서 돌면 PrintToPdf 의 완료 알림이 그 메인 스레드로 오지 못해
+// 자기가 기다리는 것을 자기가 막는다. 실제 기록에 남은 모습 —
+//
+//     오류  save_pdf — PDF 저장이 시간 안에 끝나지 않았습니다.
+//     느림  save_pdf 120119ms — …OKC_MES_설정가이드.pdf
 #[cfg(windows)]
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_pdf(window: tauri::WebviewWindow, path: String) -> Result<(), String> {
     use std::sync::mpsc;
     use std::time::Duration;
@@ -23,7 +29,8 @@ pub fn save_pdf(window: tauri::WebviewWindow, path: String) -> Result<(), String
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tx_start = tx.clone();
 
-    // 클로저는 메인 스레드에서 돌고, 커맨드 자체는 작업 스레드라 여기서 기다려도 안전하다.
+    // 클로저는 메인 스레드에서 돌고, 커맨드 자체는 작업 스레드(위의 `async`)라
+    // 여기서 기다려도 메인 스레드를 막지 않는다.
     window
         .with_webview(move |webview| {
             if let Err(e) = unsafe { win::start(&webview, &path, tx.clone()) } {
