@@ -19,8 +19,8 @@
 
 import { note } from './diag.js'
 
-/** 조합 한 단계가 이보다 늦게 그려지면 적는다 */
-const SLOW_MS = 150
+/** 조합 한 단계가 이보다 늦게 그려지면 적는다. 사람이 느끼는 문턱에 맞춘다 */
+const SLOW_MS = 80
 /** Lexical 이 길을 가르는 값 (`ANDROID_COMPOSITION_LATENCY`) */
 const LEXICAL_BRANCH_MS = 30
 
@@ -29,6 +29,7 @@ let lastKeyDown = 0
 let startedAt = 0
 let steps = 0
 let missed = 0
+let unknown = 0
 let slowest = 0
 
 const onKeyDown = (e) => { if (e.isComposing || e.keyCode === 229) lastKeyDown = performance.now() }
@@ -37,6 +38,7 @@ function onStart() {
   startedAt = performance.now()
   steps = 0
   missed = 0
+  unknown = 0
   slowest = 0
   const gap = Math.round(startedAt - lastKeyDown)
   // 30ms 를 넘으면 Lexical 이 다른 길을 간다. 그 사실만 적어 둔다
@@ -53,28 +55,41 @@ function onUpdate(e) {
   requestAnimationFrame(() => {
     const ms = Math.round(performance.now() - t0)
     if (ms > slowest) slowest = ms
-    if (!visible(data)) missed += 1
+    const seen = visible(data)
+    if (seen === false) missed += 1
+    else if (seen === null) unknown += 1
   })
 }
 
-/** 조합 중인 글자가 지금 화면(DOM)에 있는가 */
+/**
+ * 조합 중인 글자가 **커서 자리에** 있는가.
+ *
+ * 처음에는 편집 상자 전체에서 그 글자를 찾았는데, 그러면 한글 문서에서는 '하' 같은
+ * 글자가 어딘가엔 늘 있어서 **거의 항상 통과**했다. 그래서 아무것도 못 잡았다.
+ * 커서 바로 앞의 글자와 정확히 대 본다.
+ *
+ * @returns true 보임 · false 안 보임 · null 판단 못 함(선택이 글자 위가 아니다)
+ */
 function visible(data) {
   const sel = window.getSelection?.()
   const node = sel?.anchorNode
-  const text = node?.nodeType === 3 ? node.data : node?.textContent
-  if (typeof text === 'string' && text.includes(data)) return true
-  // 선택이 다른 곳을 가리키는 경우도 있어 편집 중인 상자까지 한 번 더 본다
+  if (!node || node.nodeType !== 3) return null
+  const off = sel.anchorOffset
+  return node.data.slice(Math.max(0, off - data.length), off) === data
+}
+
+/** 지금 편집 중인 문서가 몇 글자인가 (크기와 느림을 견주려고) */
+function docSize() {
   const box = document.activeElement?.closest?.('[contenteditable="true"]')
-  return !!box && box.textContent.includes(data)
+  return box ? Math.round(box.textContent.length / 1000) : 0
 }
 
 function onEnd() {
   const total = Math.round(performance.now() - startedAt)
-  if (missed > 0) {
-    note(`조합  ${steps}단계 중 ${missed}단계가 화면에 안 나타남 · 총 ${total}ms · 가장 느린 단계 ${slowest}ms`)
-  } else if (slowest >= SLOW_MS) {
-    note(`조합  느림 — ${steps}단계 · 총 ${total}ms · 가장 느린 단계 ${slowest}ms`)
-  }
+  const where = `${steps}단계 · 총 ${total}ms · 가장 느린 단계 ${slowest}ms · 문서 ${docSize()}천 자`
+  if (missed > 0) note(`조합  ${missed}단계가 커서 자리에 안 나타남 — ${where}`)
+  else if (slowest >= SLOW_MS) note(`조합  느림 — ${where}`)
+  else if (unknown === steps && steps > 0) note(`조합  판단 못 함(선택이 글자 위가 아님) — ${where}`)
   steps = 0
 }
 
