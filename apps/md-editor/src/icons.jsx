@@ -42,6 +42,14 @@ export const IconSaveAs = () => (
   </Svg>
 )
 
+/** 최근 문서(시계) */
+export const IconRecent = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5.2l3.4 2" />
+  </Svg>
+)
+
 /** 설정(톱니) */
 export const IconGear = () => (
   <Svg>

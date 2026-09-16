@@ -387,6 +387,19 @@ td.md-cell-sel, th.md-cell-sel { background-color: #cfe0ff !important; }
   z-index: 200;
 }
 
+/* --- 링크 따라가기 (linkNav.js) --- */
+
+/* 위지윅에서 링크를 그냥 누르는 것은 글자를 고치려는 것이다. 따라가기는 Ctrl+누르기다.
+   Ctrl 을 누르고 있는 동안에만 손가락 커서로 바뀌어 그 사실이 보인다 */
+body.md-ctrl .prose a { cursor: pointer; text-decoration-thickness: 2px; }
+
+/* 링크를 따라 제목으로 데려간 자리. 잠깐 켰다 끈다 */
+.prose .md-jump {
+  background: #fff3bf;
+  border-radius: 4px;
+  transition: background .8s ease-out;
+}
+
 /* --- 글자색 · 배경색 (colorTools.jsx) --- */
 
 .color-tool { position: relative; display: inline-flex; }

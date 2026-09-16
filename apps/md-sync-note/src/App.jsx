@@ -34,8 +34,9 @@ export default function App() {
   const [status, setStatus] = useState('')
   const [gitTick, setGitTick] = useState(0)     // 커밋 후 트리의 git 상태를 새로 읽게 한다
 
+  // 이미지·링크 핸들러가 항상 최신 문서 경로와 설정을 보도록 ref 로 전달.
+  // 내용은 문서 여는 함수가 만들어진 뒤에 채운다 (아래)
   const ctxRef = useRef({ path: null, imageDir: DEFAULTS.imageDir })
-  ctxRef.current = { path: doc?.path ?? null, imageDir: settings.imageDir }
 
   const docRef = useRef(doc)
   docRef.current = doc
@@ -116,8 +117,20 @@ export default function App() {
 
   /* ---------- 문서 ---------- */
 
+  /*
+   * 위지윅으로 읽지 못하는 문서(예: MDX 가 자기 문법으로 보는 `{ }`)는 **원본 모드로
+   * 다시 열고 무엇이 문제인지 말해 준다.** 빈 화면을 보여줄 이유가 없다.
+   * MDXEditor 는 읽기에 실패해도 원본 글자를 들고 있고 스스로 파일을 다시 쓰지 않는다.
+   */
+  const [failedPath, setFailedPath] = useState(null)
+  const onEditorError = useCallback(({ error }) => {
+    setFailedPath(docRef.current?.path ?? null)
+    setStatus(`위지윅으로 열 수 없어 원본 모드로 열었습니다 — ${String(error).slice(0, 120)}`)
+  }, [])
+
   const openDoc = useCallback(async (path, reveal) => {
     if (docRef.current?.dirty) await persist(liveDoc())
+    setFailedPath(null)          // 열 때마다 위지윅을 다시 시도한다 (고쳤을 수 있다)
     try {
       const raw = isTauri ? await invoke('read_file', { path }) : `# ${baseName(path)}\n\n데모 문서입니다.`
       // MDXEditor 는 MDX 로 읽어서 태그가 아닌 `<` 를 만나면 파싱이 실패한다
@@ -131,6 +144,9 @@ export default function App() {
       setStatus(`열 수 없습니다: ${e}`)
     }
   }, [])
+
+  // 문서 안의 `[글](다른글.md)` 링크를 Ctrl+누르면 이 함수로 온다 (`linkNav.js`)
+  ctxRef.current = { path: doc?.path ?? null, imageDir: settings.imageDir, openFile: openDoc }
 
   async function persist(d) {
     if (!d?.path || !d.dirty) return
@@ -271,9 +287,15 @@ export default function App() {
         )}
 
         {doc
-          ? <SplitEditor key={doc.path} markdown={doc.content} onChange={onChange}
+          ? <SplitEditor key={doc.path + (failedPath === doc.path ? '·source' : '')}
+                         // 원본 모드로 떨어질 때 다시 마운트된다. 그때 넘길 것은
+                         // 지금 편집 중인 글자다 — 아니면 고치던 것이 사라진다
+                         markdown={liveRef.current || doc.content}
+                         onChange={onChange} onError={onEditorError}
                          ctxRef={ctxRef} wide={settings.wideLayout}
-                         viewMode={initialViewMode(doc.content, settings.bigDocSource)} />
+                         viewMode={failedPath === doc.path
+                           ? 'source'
+                           : initialViewMode(doc.content, settings.bigDocSource)} />
           : (
             <div className={'editor-wrap' + (settings.wideLayout ? ' wide' : '')}>
               <div className="placeholder">왼쪽 트리에서 문서를 선택하면 여기에 열립니다.</div>

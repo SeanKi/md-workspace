@@ -1,7 +1,7 @@
 {
   "name": "@md/editor-core",
   "private": true,
-  "version": "0.12.1",
+  "version": "0.13.0",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -11,6 +11,7 @@
   "peerDependencies": {
     "lexical": "^0.48.0",
     "@lexical/react": "^0.48.0",
+    "@lexical/link": "^0.48.0",
     "@mdxeditor/editor": "^4.2.3",
     "@tauri-apps/api": "^2",
     "mermaid": "^11.17.2",

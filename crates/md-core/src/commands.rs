@@ -47,6 +47,99 @@ pub fn read_binary_base64(path: String) -> Result<String, String> {
     Ok(STANDARD.encode(bytes))
 }
 
+/* ---------- 문서 안의 링크 (linkNav.js) ---------- */
+
+/// 눌렀다고 실행해 줄 수는 없는 것들. 문서는 남이 준 것일 수 있다 —
+/// `[보고서](setup.exe)` 를 눌렀다고 프로그램이 돌면 안 된다.
+const RISKY: [&str; 16] = [
+    "exe", "bat", "cmd", "com", "scr", "pif", "msi", "msp", "hta", "cpl", "lnk", "reg", "ps1",
+    "vbs", "vbe", "wsf",
+];
+
+/// 여는 주소 — `http` · `https` · `mailto` 만. `javascript:` 같은 것은 막는다
+const SAFE_SCHEMES: [&str; 3] = ["http", "https", "mailto"];
+
+/// `주소:` 의 스킴. `C:\...` 는 드라이브지 스킴이 아니므로(한 글자) 걸리지 않는다.
+fn scheme_of(s: &str) -> Option<String> {
+    let head = s.split_once(':')?.0;
+    if head.len() < 2 || !head.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    if !head.chars().all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c)) {
+        return None;
+    }
+    Some(head.to_lowercase())
+}
+
+/// 이 앱이 열지 않는 링크(웹 주소 · PDF · 그림)를 운영체제에 넘긴다.
+/// 마크다운 링크는 `linkNav.js` 가 먼저 갈라서 `.md` 는 여기로 오지 않는다.
+#[tauri::command(async)]
+pub fn open_external(target: String) -> Result<(), String> {
+    let t = target.trim();
+    if t.is_empty() {
+        return Err("빈 주소입니다".into());
+    }
+    match scheme_of(t) {
+        Some(s) if SAFE_SCHEMES.contains(&s.as_str()) => {}
+        Some(s) => return Err(format!("{s}: 로 시작하는 주소는 열지 않습니다")),
+        None => {
+            let ext = Path::new(t)
+                .extension()
+                .map(|e| e.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            if RISKY.contains(&ext.as_str()) {
+                return Err(format!(".{ext} 파일은 링크로 실행하지 않습니다"));
+            }
+            if !Path::new(t).exists() {
+                return Err(format!("파일이 없습니다: {t}"));
+            }
+        }
+    }
+    sys_open(t)
+}
+
+#[cfg(windows)]
+fn sys_open(target: &str) -> Result<(), String> {
+    use std::ffi::{c_void, OsStr};
+    use std::os::windows::ffi::OsStrExt;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: *mut c_void,
+            op: *const u16,
+            file: *const u16,
+            params: *const u16,
+            dir: *const u16,
+            show: i32,
+        ) -> isize;
+    }
+
+    let wide = |s: &str| OsStr::new(s).encode_wide().chain(Some(0)).collect::<Vec<u16>>();
+    let (op, file) = (wide("open"), wide(target));
+    // ShellExecuteW 는 성공하면 32 보다 큰 값을 준다 (옛 HINSTANCE 자리)
+    let r = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            op.as_ptr(),
+            file.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            1, // SW_SHOWNORMAL
+        )
+    };
+    if r > 32 {
+        Ok(())
+    } else {
+        Err(format!("열 수 없습니다 (코드 {r}): {target}"))
+    }
+}
+
+#[cfg(not(windows))]
+fn sys_open(_target: &str) -> Result<(), String> {
+    Err("이 플랫폼에서는 지원하지 않습니다".into())
+}
+
 #[derive(Serialize)]
 pub struct DirEntry {
     pub name: String,
@@ -193,6 +286,29 @@ mod tests {
         assert!(rename_path(b.clone(), c.clone()).is_err());
         assert_eq!(std::fs::read_to_string(&c).unwrap(), "다", "덮어쓰지 않았다");
         assert!(rename_path(format!("{root}/없음.md"), b.clone()).is_err());
+    }
+
+    /// 문서는 남이 준 것일 수 있다. 눌렀다고 무엇이든 실행해 주면 안 된다.
+    /// (여는 데 성공하는 쪽은 실제로 브라우저가 떠 버리므로 테스트하지 않는다)
+    #[test]
+    fn 위험한_링크는_열지_않는다() {
+        for bad in ["setup.exe", "C:/tmp/a.bat", "x.LNK", "note.ps1"] {
+            let e = open_external(bad.into()).unwrap_err();
+            assert!(e.contains("실행하지 않습니다"), "{bad} — {e}");
+        }
+        assert!(open_external("javascript:alert(1)".into())
+            .unwrap_err()
+            .contains("열지 않습니다"));
+        assert!(open_external("C:/이런/파일은/없다.pdf".into())
+            .unwrap_err()
+            .contains("파일이 없습니다"));
+    }
+
+    #[test]
+    fn 드라이브_문자는_스킴이_아니다() {
+        assert_eq!(scheme_of("https://a.com"), Some("https".into()));
+        assert_eq!(scheme_of(r"C:\문서\a.md"), None);
+        assert_eq!(scheme_of("images/a.png"), None);
     }
 
     /// 휴지통으로 보낸다. 테스트가 남기는 것은 임시 파일 하나뿐이다.

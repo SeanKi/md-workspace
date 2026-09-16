@@ -42,6 +42,7 @@
   cursor: pointer;
 }
 .tab-actions button:hover { background: #dde1e7; color: #111; }
+.tab-actions button.on { background: #d0d5dc; color: #111; }
 .tab-actions button:active { background: #d0d5dc; }
 .tab-actions svg { width: 16px; height: 16px; }
 .tab {
@@ -88,6 +89,89 @@
   cursor: pointer;
 }
 .tab-add:hover { background: #e3e6ea; }
+
+/* --- 탭 끌기 (useTabDrag.js) --- */
+/* 끌고 있는 탭은 흐려지고, 놓일 자리에 선이 선다 */
+.tab.dragging { opacity: .4; }
+.tab-ins {
+  align-self: center;
+  flex: none;
+  width: 2px;
+  height: 20px;
+  background: #2563eb;
+  border-radius: 1px;
+}
+.tab-ghost {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(37, 99, 235, .94);
+  border-radius: 6px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.tab-ghost span { opacity: .8; }
+
+/* --- 최근 문서 (RecentMenu.jsx) --- */
+/* 이름만으로는 어느 것인지 모른다 — 폴더가 다를 뿐 이름이 같은 문서가 흔하다.
+   그래서 한 줄에 이름과 경로를 위아래로 담는다 */
+.recent-menu {
+  position: fixed;
+  z-index: 300;
+  width: min(460px, calc(100vw - 24px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #dcdfe4;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+}
+.recent-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 10px;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.recent-item:hover { background: #eef2f8; }
+.recent-name { font-size: 12px; font-weight: 600; color: #222; }
+.recent-path {
+  font-size: 10px;
+  color: #8a8f97;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;          /* 길면 앞쪽을 자른다 — 파일 이름 쪽이 남아야 한다 */
+  text-align: left;
+}
+.recent-empty { padding: 10px 12px; font-size: 12px; color: #8a8f97; }
+.recent-clear {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11px;
+  color: #7a8087;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #eceff3;
+  border-radius: 0 0 5px 5px;
+  cursor: pointer;
+}
+.recent-clear:hover { background: #f4f5f7; color: #333; }
 
 /* --- 설정 --- */
 .settings {

@@ -11,6 +11,7 @@ import useFiles from './useFiles.js'
 import useExternalChanges from './useExternalChanges.js'
 import ReloadDialog from './ReloadDialog.jsx'
 import { OPENABLE, baseName, docTitle } from './paths.js'
+import { pushRecent, dropRecent } from './recent.js'
 
 const SETTINGS_KEY = 'md-editor-settings'
 /** 큰 문서는 원본 모드로 연다 (위지윅은 한 글자에 0.6초가 든다 — `bigDoc.js`) */
@@ -64,9 +65,9 @@ export default function App() {
     }, TITLE_MS)
   }, [])
 
-  // 이미지 핸들러가 항상 최신 문서 경로와 설정을 보도록 ref 로 전달
+  // 이미지·링크 핸들러가 항상 최신 문서 경로와 설정을 보도록 ref 로 전달.
+  // 내용은 파일 여는 함수가 만들어진 뒤에 채운다 (아래)
   const ctxRef = useRef({ path: null, imageDir: 'images' })
-  ctxRef.current = { path: active?.path ?? null, imageDir: settings.imageDir }
 
   // 콜백 안에서 최신 탭 목록을 보기 위한 미러
   const tabsRef = useRef(tabs)
@@ -101,8 +102,28 @@ export default function App() {
 
   /* ---------- 파일 ---------- */
 
+  /* ---------- 최근 문서 ---------- */
+
+  // 설정과 같은 자리에 담는다. 목록을 바꾸는 길이 하나뿐이어야 어긋나지 않는다
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+  const putSettings = useCallback((patch) => {
+    const next = { ...settingsRef.current, ...patch }
+    setSettings(next)
+    saveSettings(SETTINGS_KEY, next)
+  }, [])
+
+  // 연 문서는 목록 맨 앞으로(중복은 하나만), 열리지 않은 것은 목록에서 뺀다
+  const onUsed = useCallback((path, ok) => {
+    const list = settingsRef.current.recent
+    putSettings({ recent: ok ? pushRecent(list, path) : dropRecent(list, path) })
+  }, [putSettings])
+
   const { openPath, openDialog, saveActive } =
-    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say, liveOf })
+    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say, liveOf, onUsed })
+
+  // 문서 안의 `[글](다른글.md)` 링크를 Ctrl+누르면 이 함수로 온다 (`linkNav.js`)
+  ctxRef.current = { path: active?.path ?? null, imageDir: settings.imageDir, openFile: openPath }
 
   /* ---------- 외부 변경 감지 ---------- */
 
@@ -116,15 +137,8 @@ export default function App() {
     setActiveId(t.id)
   }, [])
 
-  const closeTab = useCallback(async (id) => {
-    const t = tabsRef.current.find((x) => x.id === id)
-    if (!t) return
-    if (t.dirty) {
-      const ok = isTauri
-        ? await confirm(`"${baseName(t.path)}" 의 변경 사항을 버릴까요?`, { title: '저장하지 않음', kind: 'warning' })
-        : window.confirm('변경 사항을 버릴까요?')
-      if (!ok) return
-    }
+  /** 탭을 목록에서 뺀다. 물어보지 않는다 — 물어볼 일은 부르는 쪽이 먼저 한다 */
+  const removeTab = useCallback((id) => {
     liveRef.current.delete(id)
     setTabs((ts) => {
       const rest = ts.filter((x) => x.id !== id)
@@ -140,6 +154,85 @@ export default function App() {
       return rest
     })
   }, [activeId])
+
+  const closeTab = useCallback(async (id) => {
+    const t = tabsRef.current.find((x) => x.id === id)
+    if (!t) return
+    if (t.dirty) {
+      const ok = isTauri
+        ? await confirm(`"${baseName(t.path)}" 의 변경 사항을 버릴까요?`, { title: '저장하지 않음', kind: 'warning' })
+        : window.confirm('변경 사항을 버릴까요?')
+      if (!ok) return
+    }
+    removeTab(id)
+  }, [removeTab])
+
+  /** 끌어 놓은 자리로 탭 순서를 바꾼다. `to` 는 "몇 번째 앞" 이다 */
+  const reorderTab = useCallback((id, to) => {
+    setTabs((ts) => {
+      const from = ts.findIndex((x) => x.id === id)
+      if (from < 0 || to === from || to === from + 1) return ts
+      const next = [...ts]
+      const [t] = next.splice(from, 1)
+      next.splice(from < to ? to - 1 : to, 0, t)
+      return next
+    })
+  }, [])
+
+  /**
+   * 창 밖으로 끌어낸 탭 — 다른 MD Notepad 창이면 그 창으로, 아니면 새 창으로.
+   *
+   * 넘겨받는 쪽은 **파일을 다시 읽는다.** 그래서 고친 것이 있으면 먼저 저장해야
+   * 한다. 이 앱에서 진실의 원천은 언제나 실제 `.md` 파일이다.
+   */
+  const detachTab = useCallback(async (t) => {
+    if (!isTauri) return
+    if (!t.path) { say('저장하지 않은 탭은 옮길 수 없습니다 — 먼저 저장해 주세요'); return }
+    try {
+      if (t.dirty) await invoke('write_file', { path: t.path, contents: liveOf(t) })
+      const how = await invoke('hand_off_tab', { path: t.path })
+      if (how === 'self') return                      // 제 창 위에 놓았다 — 아무 일도 없다
+      removeTab(t.id)
+      say(how === 'moved'
+        ? `${baseName(t.path)} 을(를) 다른 창으로 옮겼습니다`
+        : `${baseName(t.path)} 을(를) 새 창으로 열었습니다`)
+    } catch (e) {
+      say(`옮기지 못했습니다: ${e}`)
+    }
+  }, [removeTab, say, liveOf])
+
+  // 다른 창이 넘겨준 탭 (`handoff.rs`)
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten
+    let cancelled = false
+    import('@tauri-apps/api/event')
+      .then(({ listen }) => listen('tab-handoff', (e) => openPath(e.payload.path)))
+      .then((un) => { if (cancelled) un(); else unlisten = un })
+      .catch((e) => note(`탭 넘겨받기 실패: ${e}`))
+    return () => { cancelled = true; unlisten?.() }
+  }, [openPath])
+
+  /* ---------- 위지윅으로 열리지 않는 문서 ---------- */
+
+  /*
+   * MDXEditor 는 마크다운을 MDX 로 읽는다. `{ }` 처럼 MDX 가 자기 문법으로 보는 글자가
+   * 있으면 아무리 다듬어도(`normalizeMarkdown.js`) 읽지 못하는 문서가 남는다.
+   *
+   * 그때 빈 화면을 보여줄 이유가 없다 — **원본 모드로 다시 열고 무엇이 문제인지 말해
+   * 준다.** MDXEditor 는 읽기에 실패해도 원본 글자를 그대로 들고 있고, 그 상태에서는
+   * 스스로 파일을 다시 쓰지도 않는다. 그러니 원본 모드에서 고쳐 저장하면 된다.
+   *
+   * 다시 그리려면 리마운트해야 한다(키를 바꾼다) — 보기 모드는 편집기가 만들어질 때
+   * 한 번 정해진다.
+   */
+  const [failed, setFailed] = useState({})
+  const onEditorError = useCallback(({ error }) => {
+    const t = activeRef.current
+    if (!t) return
+    setFailed((m) => (m[t.id] ? m : { ...m, [t.id]: true }))
+    say(`위지윅으로 열 수 없어 원본 모드로 열었습니다 — ${String(error).slice(0, 120)}`)
+  }, [say])
 
   // 두 번째 인자는 "파일을 연 직후 MDXEditor 가 스스로 다듬은 것"이라는 표시다.
   // 이걸 사용자의 편집으로 치면, 손대지도 않은 문서가 수정됨으로 잡혀
@@ -189,14 +282,6 @@ export default function App() {
     },
   })
 
-  /* ---------- 설정 ---------- */
-
-  const updateSettings = (patch) => {
-    const next = { ...settings, ...patch }
-    setSettings(next)
-    saveSettings(SETTINGS_KEY, next)
-  }
-
   /* ---------- 렌더 ---------- */
 
   return (
@@ -212,6 +297,11 @@ export default function App() {
           onSelect={setActiveId}
           onClose={closeTab}
           onAdd={addTab}
+          onReorder={reorderTab}
+          onDetach={detachTab}
+          recent={settings.recent}
+          onPickRecent={openPath}
+          onClearRecent={() => putSettings({ recent: [] })}
           onOpen={openDialog}
           onSave={() => saveActive(false)}
           onSaveAs={() => saveActive(true)}
@@ -220,14 +310,17 @@ export default function App() {
       </div>
 
       {showSettings && (
-        <SettingsBar settings={settings} onChange={updateSettings} path={active?.path} />
+        <SettingsBar settings={settings} onChange={putSettings} path={active?.path} />
       )}
 
       <SplitEditor
-        key={active.id}
-        markdown={active.content}
-        viewMode={initialViewMode(active.content, settings.bigDocSource)}
+        key={active.id + (failed[active.id] ? '·source' : '')}
+        // 원본 모드로 떨어질 때는 다시 마운트된다. 그때 넘길 것은 파일을 열 때의 글자가
+        // 아니라 **지금 편집 중인 글자**다 (`liveOf`) — 아니면 고치던 것이 사라진다
+        markdown={liveOf(active)}
+        viewMode={failed[active.id] ? 'source' : initialViewMode(active.content, settings.bigDocSource)}
         onChange={onEditorChange}
+        onError={onEditorError}
         ctxRef={ctxRef}
         wide={settings.wideLayout}
       />
