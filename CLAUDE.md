@@ -355,6 +355,7 @@ MDXEditor 툴바 버튼은 `title` 이 아니라 **`aria-label`** 로 찾아야 
 | `docs/MD_Editor_Tauri_Planned_Features.md` | 원래 계획서 |
 | `docs/Windows_File_Association.md` | .md 우클릭·연결 프로그램 등록 (제약과 레지스트리 키) |
 | `docs/Update_History.md` | 변경 이력 + 향후 기술 검토 |
+| `docs/Release.md` | **릴리스 낼 때 먼저 읽을 것.** 버전 올릴 아홉 자리 · 배포 · 릴리스 노트 쓰는 법 |
 
 ## 지금 상태
 
