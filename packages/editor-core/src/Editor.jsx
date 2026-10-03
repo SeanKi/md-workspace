@@ -13,9 +13,18 @@ import {
 import { mermaidDescriptor, InsertMermaid } from './MermaidBlock.jsx'
 import { tableCellBreakPlugin } from './tableCellBreak.jsx'
 import { uploadImage, previewImage } from './images.js'
+import { imagePastePlugin } from './imagePaste.js'
+import { note } from './diag.js'
 import { useTableCellSelect } from './tableSelect.js'
 import { useLinkNav, followHref } from './linkNav.js'
 import { TextColor, BackColor } from './colorTools.jsx'
+
+// 이미지 올리기 실패는 MDXEditor 가 promise 안에서 삼킨다. 여기서 말해 준다
+function imageFailed(e) {
+  note(`이미지 넣기 실패: ${e?.message ?? e}`)
+  alert(`이미지를 넣지 못했습니다.
+${e?.message ?? e}`)
+}
 
 export default function Editor({ markdown, onChange, onError, ctxRef, editorRef, viewMode = 'rich-text' }) {
   useTableCellSelect()
@@ -32,9 +41,12 @@ export default function Editor({ markdown, onChange, onError, ctxRef, editorRef,
     linkDialogPlugin({ onClickLinkCallback: (url) => followHref(url, ctxRef.current) }),
     tablePlugin(), tableCellBreakPlugin(),
     imagePlugin({
-      imageUploadHandler: (file) => uploadImage(file, ctxRef.current),
+      imageUploadHandler: (file) => uploadImage(file, ctxRef.current)
+        .catch((e) => { imageFailed(e); throw e }),
       imagePreviewHandler: (src) => previewImage(src, ctxRef.current),
     }),
+    // 붙여넣기는 우리가 먼저 받는다 — MDXEditor 는 섞인 클립보드를 놓친다 (`imagePaste.js`)
+    imagePastePlugin({ upload: (file) => uploadImage(file, ctxRef.current), onError: imageFailed }),
     codeBlockPlugin({
       defaultCodeBlockLanguage: 'txt',
       codeBlockEditorDescriptors: [mermaidDescriptor],

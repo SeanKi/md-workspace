@@ -22,14 +22,23 @@ import { $findMatchingParent } from '@lexical/utils'
 
 const TEXT_COLORS = [
   ['#e11d48', '빨강'], ['#ea580c', '주황'], ['#ca8a04', '노랑'],
-  ['#16a34a', '초록'], ['#2563eb', '파랑'], ['#7c3aed', '보라'],
-  ['#0f172a', '검정'], ['#6b7280', '회색'],
+  ['#16a34a', '초록'], ['#0d9488', '청록'], ['#2563eb', '파랑'],
+  ['#7c3aed', '보라'], ['#db2777', '분홍'], ['#6b7280', '회색'],
+  ['#0f172a', '검정'],
 ]
 
 const BACK_COLORS = [
-  ['#fef08a', '노랑'], ['#bbf7d0', '초록'], ['#bfdbfe', '파랑'],
-  ['#fbcfe8', '분홍'], ['#fed7aa', '주황'], ['#e5e7eb', '회색'],
+  ['#fecaca', '빨강'], ['#fed7aa', '주황'], ['#fef08a', '노랑'],
+  ['#bbf7d0', '초록'], ['#99f6e4', '청록'], ['#bfdbfe', '파랑'],
+  ['#ddd6fe', '보라'], ['#fbcfe8', '분홍'], ['#e5e7eb', '회색'],
+  ['#cbd5e1', '진회색'],
 ]
+
+/**
+ * 마지막으로 고른 색. 모듈에 둔다 — 문서를 바꾸면 에디터가 `key=` 로 다시
+ * 만들어지는데(탭 전환), 그때마다 처음 색으로 돌아가면 Word 처럼 쓸 수가 없다.
+ */
+const lastPicked = {}
 
 /* ---------- 스타일 문자열 다루기 ---------- */
 
@@ -158,10 +167,15 @@ function Palette({ at, colors, onPick, onClear, onClose }) {
   )
 }
 
-function ColorButton({ title, colors, prop, glyph, bar }) {
+/**
+ * Word 식 나뉜 단추. 본 단추는 **지금 색으로 바로 칠하고**, 옆의 ▾ 는 색판을
+ * 열어 색을 바꾼다(바꾸면서 그 색으로 칠도 한다). 본 단추 밑 띠가 지금 색이다.
+ */
+function ColorButton({ title, colors, prop, glyph, initial }) {
   const editor = useCellValue(activeEditor$)
   const hostRef = useRef(null)
   const [at, setAt] = useState(null)
+  const [color, setColor] = useState(lastPicked[prop] ?? initial)
 
   const toggle = () => {
     if (at) { setAt(null); return }
@@ -169,19 +183,31 @@ function ColorButton({ title, colors, prop, glyph, bar }) {
     setAt(r ? { left: r.left, top: r.bottom + 4 } : { left: 8, top: 8 })
   }
 
+  const pick = (c) => {
+    lastPicked[prop] = c
+    setColor(c)
+    if (editor) apply(editor, prop, c)
+  }
+
+  const name = colors.find(([c]) => c === color)?.[1] ?? color
+
   return (
     <span className="color-tool" ref={hostRef}>
-      <ButtonWithTooltip title={title} onClick={toggle}>
+      <ButtonWithTooltip title={`${title} (${name})`} onClick={() => editor && apply(editor, prop, color)}>
         <span className="color-glyph">
           {glyph}
-          <i style={{ background: bar }} />
+          <i style={{ background: color }} />
         </span>
+      </ButtonWithTooltip>
+      <ButtonWithTooltip title={`${title} 고르기`} className="color-drop" onClick={toggle}>
+        {/* 글자 ▾ 는 9px 로는 안 보이고 키우면 줄 높이를 밀어낸다. 그림으로 그린다 */}
+        <svg viewBox="0 0 10 10" aria-hidden><path d="M1.5 3.5 5 7l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </ButtonWithTooltip>
       {at && (
         <Palette
           at={at}
           colors={colors}
-          onPick={(c) => editor && apply(editor, prop, c)}
+          onPick={pick}
           onClear={() => editor && apply(editor, prop, null)}
           onClose={() => setAt(null)}
         />
@@ -192,12 +218,12 @@ function ColorButton({ title, colors, prop, glyph, bar }) {
 
 /** 글자색 */
 export const TextColor = () => (
-  <ColorButton title="글자색" colors={TEXT_COLORS} prop="color" glyph="가" bar="#e11d48" />
+  <ColorButton title="글자색" colors={TEXT_COLORS} prop="color" glyph="가" initial="#e11d48" />
 )
 
 /** 배경색(형광펜) */
 export const BackColor = () => (
-  <ColorButton title="배경색" colors={BACK_COLORS} prop="background-color" glyph="가" bar="#fef08a" />
+  <ColorButton title="배경색" colors={BACK_COLORS} prop="background-color" glyph="가" initial="#fef08a" />
 )
 
 export { clearAll as clearColors }

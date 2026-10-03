@@ -38,14 +38,17 @@ export function normalizeImageDir(v) {
  */
 export async function uploadImage(file, ctx) {
   if (!isTauri) return URL.createObjectURL(file)   // 브라우저 개발 모드 폴백
-  if (!ctx.path) throw new Error('먼저 문서를 저장한 뒤 이미지를 붙여넣어 주세요.')
+  // 상대 경로의 기준이 문서 폴더라 저장하지 않은 문서에는 넣을 자리가 없다.
+  // 앱이 저장 길을 주면(MD Notepad) 그 자리에서 저장부터 받는다
+  const docPath = ctx.path ?? await ctx.ensureSaved?.()
+  if (!docPath) throw new Error('먼저 문서를 저장한 뒤 이미지를 붙여넣어 주세요.')
 
   let ext = extOf(file.name || '')
   if (!ext || ext.length > 5) ext = (file.type || '').split('/')[1] || 'png'
 
   const sub = normalizeImageDir(ctx.imageDir)
   const rel = sub ? `${sub}/${stamp()}.${ext}` : `${stamp()}.${ext}`
-  const abs = `${dirOf(ctx.path)}/${rel}`
+  const abs = `${dirOf(docPath)}/${rel}`
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   await invoke('save_binary_b64', { path: abs, b64: toBase64(bytes) })

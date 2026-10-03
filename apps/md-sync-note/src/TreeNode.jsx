@@ -1,5 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { samePath } from '@md/editor-core'
 import { listDir } from './repos.js'
+
+const under = (path, dir) =>
+  path.replace(/\\/g, '/').toLowerCase().startsWith(dir.replace(/\\/g, '/').toLowerCase() + '/')
 
 /**
  * 트리의 한 줄. 폴더면 펼침/접힘과 지연 로딩까지 맡는다.
@@ -31,6 +35,22 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
     load()
   }, [ver])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  /*
+   * 탭을 고르면 그 문서가 트리에서도 켜져야 한다. 접힌 폴더 안에 있으면 켜 봐야
+   * 보이지 않으므로 **가는 길의 폴더를 펼친다.**
+   *
+   * 활성 문서가 **바뀐 순간에만** 펼친다. 매번 보면 사용자가 접은 폴더를 그 자리에서
+   * 다시 펼쳐 버려 접을 수가 없다.
+   */
+  const seen = useRef(activePath)
+  useEffect(() => {
+    const changed = seen.current !== activePath
+    seen.current = activePath
+    if (!changed || !entry.is_dir || !activePath || !under(activePath, entry.path)) return
+    setOpen(true)
+    if (kids === null) load()
+  }, [activePath])   // eslint-disable-line react-hooks/exhaustive-deps
+
   // 들여쓰기 — 폴더는 화살표를 달고 파일은 안 단다. 그대로 두면 같은 층의
   // 파일이 폴더보다 **왼쪽**으로 나와 층이 어긋나 보인다.
   // 파일에 화살표 자리(CARET)만큼을 주면 아이콘이 형제 폴더와 **정확히 같은 자리**에 선다.
@@ -59,11 +79,14 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
     },
   }
 
+  // 켜진 문서인가 — 글자 비교로는 못 맞춘다. 링크로 연 문서는 `C:/a/b.md` 로 온다
+  const on = samePath(activePath, entry.path) ? ' on' : ''
+
   if (!entry.is_dir) {
     return (
       <div
         {...common}
-        className={'node file' + (activePath === entry.path ? ' on' : '') + mark}
+        className={'node file' + on + mark}
         onClick={() => { if (!drag.consumeClick()) onOpen(entry.path) }}
       >
         <span className="ico">📄</span>{entry.name}

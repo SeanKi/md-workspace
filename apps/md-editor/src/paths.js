@@ -5,13 +5,7 @@ export const OPENABLE = /\.(md|markdown|mdx|txt)$/i
 
 export const baseName = (p) => (p ? p.replace(/\\/g, '/').split('/').pop() : '제목 없음')
 
-/**
- * 같은 파일인가. 글자만 비교하면 안 된다 — 대화상자는 `C:\a\b.md` 를 주고
- * 문서 안의 링크는 `C:/a/b.md` 로 풀린다(`linkNav.js`). 게다가 Windows 는
- * 대소문자를 가리지 않는다. 이걸 놓치면 같은 파일이 탭 두 개로 열린다.
- */
-export const samePath = (a, b) =>
-  !!a && !!b && a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase()
+// 같은 파일인가(`samePath`)와 최근 목록은 두 앱이 함께 쓴다 — `editor-core/recent.js`
 
 /** 확장자를 뗀 파일 이름 */
 const stem = (p) => baseName(p).replace(/\.[^.]+$/, '')

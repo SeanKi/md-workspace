@@ -165,6 +165,74 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 
 /* --- 오른쪽 --- */
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* --- 노트 탭 (NoteTabs.jsx) ---
+   MD Notepad 의 탭과 생김새를 맞춘다. 다만 여기 탭은 **창 밖으로 끌어낼 수 없다** —
+   이 앱은 창이 하나고, 문서를 옮길 곳은 왼쪽 트리지 다른 창이 아니다 */
+.notetabs {
+  display: flex;
+  align-items: stretch;
+  background: #eef0f3;
+  border-bottom: 1px solid #dcdfe4;
+  user-select: none;
+  flex: none;
+}
+.notetab-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 6px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+.notetab-strip::-webkit-scrollbar { height: 6px; }
+.notetab-empty {
+  align-self: center;
+  padding: 7px 4px;
+  font-size: 11px;
+  color: #9aa1aa;
+}
+.notetab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 6px 8px 6px 12px;
+  font-size: 12px;
+  color: #555;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.notetab:hover { background: #e3e6ea; }
+.notetab.on {
+  background: #fff;
+  color: #111;
+  border-color: #dcdfe4;
+  font-weight: 600;
+}
+.notetab-name { overflow: hidden; text-overflow: ellipsis; }
+.notetab-dot { color: #e08b00; font-size: 9px; }
+.notetab-x { padding: 0 3px; border-radius: 4px; color: #999; line-height: 1; }
+.notetab-x:hover { background: #d0d4da; color: #333; }
+.notetab-recent {
+  align-self: center;
+  flex: none;
+  margin: 0 6px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.notetab-recent:hover { background: #dde1e7; }
+.notetab-recent.on { background: #d0d5dc; }
 .titlebar .status { font-size: 11px; color: #7a8087; margin-right: 6px; }
 .placeholder {
   display: flex;

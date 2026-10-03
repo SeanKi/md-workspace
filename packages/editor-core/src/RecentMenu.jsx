@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react'
-import { baseName } from './paths.js'
+
+const baseName = (p) => (p ? p.replace(/\\/g, '/').split('/').pop() : '')
 
 /**
- * 최근에 연 문서 목록.
+ * 최근에 연 문서 목록. 두 앱이 함께 쓴다.
  *
  * 이름만 보여주면 어느 것인지 모른다 — 폴더가 다를 뿐 이름이 같은 문서가 흔하다.
  * 그래서 이름 아래에 경로를 함께 둔다.
+ *
+ * @param at { right, top } — 연 단추 오른쪽 끝에 맞춘 자리
  */
 export default function RecentMenu({ at, items, onPick, onClear, onClose }) {
   useEffect(() => {

@@ -14,6 +14,7 @@ import { invoke, isTauri } from '@md/editor-core'
 
 const LS_REPOS = 'md-sync-note-repos'
 const LS_SETTINGS = 'md-sync-note-settings'
+const LS_RECENT = 'md-sync-note-recent'
 const SAVE_MS = 400
 
 /* ---------- 값 옮기기 (INI 는 전부 글자다) ---------- */
@@ -26,17 +27,27 @@ function fromIni(text, sample) {
   return text
 }
 
-/** { settings, repos } → INI 구획 */
-function pack(settings, repos) {
+/**
+ * { settings, repos, recent } → INI 구획
+ *
+ * 최근 목록은 **`[recent]` 한 구획에 번호를 매겨** 담는다. 설정값처럼 한 줄에
+ * 이어 붙일 수는 없다 — 경로에는 쉼표도 세미콜론도 들어갈 수 있다.
+ */
+function pack(settings, repos, recent) {
   const data = { settings: {} }
   for (const [k, v] of Object.entries(settings)) data.settings[k] = toIni(v)
   repos.forEach((r, i) => {
     data[`repo.${i + 1}`] = { name: r.name, path: r.path, kind: r.kind ?? 'local' }
   })
+  if (recent?.length) {
+    data.recent = {}
+    // 번호는 글자로 정렬되므로(BTreeMap) 자리를 채워 10 이 2 보다 뒤에 오게 한다
+    recent.forEach((p, i) => { data.recent[String(i + 1).padStart(3, '0')] = p })
+  }
   return data
 }
 
-/** INI 구획 → { settings, repos } */
+/** INI 구획 → { settings, repos, recent } */
 function unpack(data, defaults) {
   const settings = { ...defaults }
   for (const [k, v] of Object.entries(data.settings ?? {})) {
@@ -49,7 +60,11 @@ function unpack(data, defaults) {
       id: `r${i + 1}`, name: data[s].name || '', kind: data[s].kind || 'local', path: data[s].path || '',
     }))
     .filter((r) => r.path)
-  return { settings, repos }
+  const recent = Object.entries(data.recent ?? {})
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([, p]) => p)
+    .filter(Boolean)
+  return { settings, repos, recent }
 }
 
 /* ---------- 읽기 ---------- */
@@ -57,16 +72,18 @@ function unpack(data, defaults) {
 const readLocal = (defaults) => ({
   settings: { ...defaults, ...JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}') },
   repos: JSON.parse(localStorage.getItem(LS_REPOS) || '[]'),
+  recent: JSON.parse(localStorage.getItem(LS_RECENT) || '[]'),
 })
 
 /**
- * @returns {{ settings, repos, path: string, note: string }}
+ * @returns {{ settings, repos, recent, path: string, note: string }}
  *          note 는 화면에 한 줄 알릴 말 (없으면 빈 글자)
  */
 export async function loadConfig(defaults) {
+  const empty = { settings: { ...defaults }, repos: [], recent: [] }
   if (!isTauri) {
     try { return { ...readLocal(defaults), path: '(브라우저)', note: '' } } catch { /* 아래 */ }
-    return { settings: { ...defaults }, repos: [], path: '(브라우저)', note: '' }
+    return { ...empty, path: '(브라우저)', note: '' }
   }
 
   const path = await invoke('config_path').catch(() => 'MDSyncNote.ini')
@@ -74,15 +91,15 @@ export async function loadConfig(defaults) {
   try {
     data = await invoke('config_load')
   } catch (e) {
-    return { settings: { ...defaults }, repos: [], path, note: String(e) }
+    return { ...empty, path, note: String(e) }
   }
 
   // 파일이 아직 없다 — 쓰던 것이 localStorage 에 있으면 그것을 옮겨 담는다
   if (Object.keys(data).length === 0) {
-    let old = { settings: { ...defaults }, repos: [] }
+    let old = empty
     try { old = readLocal(defaults) } catch { /* 없으면 기본값 */ }
     const moved = old.repos.length > 0
-    await saveConfigNow(old.settings, old.repos).catch(() => {})
+    await saveConfigNow(old.settings, old.repos, old.recent).catch(() => {})
     return { ...old, path, note: moved ? `설정을 ${path} 로 옮겼습니다` : '' }
   }
 
@@ -91,15 +108,16 @@ export async function loadConfig(defaults) {
 
 /* ---------- 쓰기 ---------- */
 
-export async function saveConfigNow(settings, repos) {
+export async function saveConfigNow(settings, repos, recent = []) {
   if (!isTauri) {
     try {
       localStorage.setItem(LS_SETTINGS, JSON.stringify(settings))
       localStorage.setItem(LS_REPOS, JSON.stringify(repos))
+      localStorage.setItem(LS_RECENT, JSON.stringify(recent))
     } catch { /* 무시 */ }
     return
   }
-  await invoke('config_save', { data: pack(settings, repos) })
+  await invoke('config_save', { data: pack(settings, repos, recent) })
 }
 
 let timer = 0
@@ -110,8 +128,8 @@ let onError = null
 export const onConfigError = (fn) => { onError = fn }
 
 /** 모아서 쓴다. 같은 순간에 여러 번 불러도 파일은 한 번만 쓰인다 */
-export function saveConfig(settings, repos) {
-  pending = { settings, repos }
+export function saveConfig(settings, repos, recent = []) {
+  pending = { settings, repos, recent }
   clearTimeout(timer)
   timer = setTimeout(flushConfig, SAVE_MS)
 }
@@ -119,9 +137,9 @@ export function saveConfig(settings, repos) {
 export function flushConfig() {
   clearTimeout(timer)
   if (!pending) return
-  const { settings, repos } = pending
+  const { settings, repos, recent } = pending
   pending = null
-  saveConfigNow(settings, repos).catch((e) => onError?.(String(e)))
+  saveConfigNow(settings, repos, recent).catch((e) => onError?.(String(e)))
 }
 
 if (typeof window !== 'undefined') window.addEventListener('beforeunload', flushConfig)

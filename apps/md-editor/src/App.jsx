@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@md/editor-core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { confirm } from '@tauri-apps/plugin-dialog'
-import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy, note, initialViewMode } from '@md/editor-core'
+import { SplitEditor, isTauri, loadSettings, saveSettings, startDiag, useBusy, note, initialViewMode, pushRecent, dropRecent } from '@md/editor-core'
 import useFileDrop from './useFileDrop.js'
 import TabBar from './TabBar.jsx'
 import SettingsBar from './SettingsBar.jsx'
@@ -11,13 +11,14 @@ import useFiles from './useFiles.js'
 import useExternalChanges from './useExternalChanges.js'
 import ReloadDialog from './ReloadDialog.jsx'
 import { OPENABLE, baseName, docTitle } from './paths.js'
-import { pushRecent, dropRecent } from './recent.js'
 
 const SETTINGS_KEY = 'md-editor-settings'
 /** 큰 문서는 원본 모드로 연다 (위지윅은 한 글자에 0.6초가 든다 — `bigDoc.js`) */
 const DEFAULTS = { bigDocSource: true }
 /** 타이핑이 멎고 이만큼 지나면 제목을 다시 센다 */
 const TITLE_MS = 500
+/** 탭은 이만큼까지. 넘으면 가장 오래 안 본 **고치지 않은** 탭이 닫힌다 */
+const MAX_TABS = 30
 
 let seq = 0
 const newTab = (path = null, content = '') => ({
@@ -75,6 +76,11 @@ export default function App() {
   const activeRef = useRef(active)
   activeRef.current = active
 
+  // 마지막으로 이 탭을 본 시각. 탭 객체에 넣으면 탭을 옮겨 다닐 때마다 목록 전체가
+  // 다시 그려지므로 ref 에 따로 둔다 (탭이 넘칠 때 무엇을 닫을지 고르는 데 쓴다)
+  const usedAt = useRef(new Map())
+  useEffect(() => { if (activeId) usedAt.current.set(activeId, Date.now()) }, [activeId])
+
   // 화면이 멎는 상황을 기록한다 (숨김 폴더 `.mdlog`)
   useEffect(() => startDiag('md-editor'), [])
 
@@ -100,6 +106,41 @@ export default function App() {
     noticeTimer.current = setTimeout(() => setNotice(''), 6000)
   }, [])
 
+  /* ---------- 탭 자리 만들기 ---------- */
+
+  /*
+   * 탭은 MAX_TABS 개까지. 넘으면 **가장 오래 안 본** 탭을 닫아 자리를 만든다.
+   *
+   * **고친 탭은 절대 닫지 않는다.** 저장하지 않은 것을 말없이 버리면 안 된다 —
+   * 그래서 다 고친 상태면 새로 열지 않고 그렇게 말해 준다.
+   */
+  const addWithRoom = useCallback((t) => {
+    const ts = tabsRef.current
+    let drop = null
+    if (ts.length >= MAX_TABS) {
+      drop = ts
+        .filter((x) => !x.dirty)
+        .sort((a, b) => (usedAt.current.get(a.id) ?? 0) - (usedAt.current.get(b.id) ?? 0))[0] ?? null
+      if (!drop) {
+        say(`탭이 ${MAX_TABS}개이고 모두 고친 상태입니다 — 몇 개 저장하고 닫아 주세요`)
+        return false
+      }
+      liveRef.current.delete(drop.id)
+      usedAt.current.delete(drop.id)
+    }
+    setTabs((ts2) => {
+      const rest = drop ? ts2.filter((x) => x.id !== drop.id) : ts2
+      // **파일을 열 때만** 손대지 않은 빈 탭 하나를 대신 쓴다.
+      // 새 탭(+)까지 이러면 빈 탭이 빈 탭을 갈아치워 탭이 늘지 않는다
+      const blank = t.path && rest.length === 1
+        && !rest[0].path && !rest[0].dirty && !rest[0].content
+      return blank ? [t] : [...rest, t]
+    })
+    setActiveId(t.id)
+    if (drop) say(`탭이 ${MAX_TABS}개를 넘어 "${baseName(drop.path)}" 을(를) 닫았습니다`)
+    return true
+  }, [say])
+
   /* ---------- 파일 ---------- */
 
   /* ---------- 최근 문서 ---------- */
@@ -120,10 +161,14 @@ export default function App() {
   }, [putSettings])
 
   const { openPath, openDialog, saveActive } =
-    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say, liveOf, onUsed })
+    useFiles({ tabsRef, activeRef, setTabs, setActiveId, newTab, say, liveOf, onUsed, addWithRoom })
 
   // 문서 안의 `[글](다른글.md)` 링크를 Ctrl+누르면 이 함수로 온다 (`linkNav.js`)
-  ctxRef.current = { path: active?.path ?? null, imageDir: settings.imageDir, openFile: openPath }
+  ctxRef.current = {
+    path: active?.path ?? null, imageDir: settings.imageDir, openFile: openPath,
+    // 저장 안 한 문서에 이미지를 붙이면 저장부터 받는다 — 이미지는 문서 폴더 기준이다
+    ensureSaved: () => { say('이미지를 넣으려면 먼저 문서를 저장해야 합니다'); return saveActive() },
+  }
 
   /* ---------- 외부 변경 감지 ---------- */
 
@@ -131,11 +176,7 @@ export default function App() {
 
   /* ---------- 탭 ---------- */
 
-  const addTab = useCallback(() => {
-    const t = newTab()
-    setTabs((ts) => [...ts, t])
-    setActiveId(t.id)
-  }, [])
+  const addTab = useCallback(() => { addWithRoom(newTab()) }, [addWithRoom])
 
   /** 탭을 목록에서 뺀다. 물어보지 않는다 — 물어볼 일은 부르는 쪽이 먼저 한다 */
   const removeTab = useCallback((id) => {

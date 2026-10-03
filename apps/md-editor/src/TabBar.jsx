@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { IconOpen, IconRecent, IconSave, IconSaveAs, IconGear } from './icons.jsx'
+import { RecentMenu } from '@md/editor-core'
 import useTabDrag from './useTabDrag.js'
-import RecentMenu from './RecentMenu.jsx'
 
 /**
  * 탭과 파일 단추가 한 줄에 있다. 제목줄은 없다 —
