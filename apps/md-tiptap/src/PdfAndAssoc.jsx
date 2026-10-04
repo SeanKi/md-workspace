@@ -64,6 +64,9 @@ export function WinAssoc() {
       <span>Windows 연결</span>
       <button type="button" onClick={() => run('assoc_register')}>{st?.registered ? '다시 등록' : '등록'}</button>
       <button type="button" onClick={() => run('assoc_unregister')} disabled={!st?.registered && !stale}>해제</button>
+      {/* 두 번 눌러 열기를 이 앱으로 — Windows 는 프로그램이 스스로 기본 앱이 되게 두지 않는다. 설정의 이 앱 쪽을 연다 */}
+      <button type="button" onClick={() => run('assoc_choose_default')}
+              title="설정 → 기본 앱 의 MDNotePad+ 쪽을 엽니다. .md 를 눌러 이 앱을 고르면 두 번 눌러 열기가 이 앱이 됩니다">기본 앱으로 정하기…</button>
       <span className="hint">
         {st?.registered
           ? '등록됨 — 탐색기에서 .md 우클릭 → “MDNotePad+로 열기”. 메모장처럼 새 창(단순 모드)으로 열린다.'

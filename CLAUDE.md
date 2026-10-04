@@ -397,5 +397,6 @@ v0.14.0 — MDSyncNote 도 탭으로. 같은 문서는 탭 하나 · 탭과 트�
 v0.15.0 — 색 단추를 Word 식 나뉜 단추로 · 이미지 붙여넣기를 우리가 먼저 받는다).
 v1.16.1 — Tiptap 판 **MDNotePad+** (`apps/md-tiptap`): WebDAV 동기화 · 단순 모드(기본, 창 여러 개)와
 `--sync` 전체 모드(하나만) · 원격 도장으로 빠른 맞추기 (`docs/Update_History.md`).
+v1.16.2 — 폰으로 저장소 넘기기(저장소별 QR · 이미 쓰는 주소에서 고르기) · 기본 앱으로 정하기.
 다음 우선순위는 **MDSyncNote 에 File Watcher 붙이기** (MD Editor 는 v0.5.0 에서 끝났다).
 자세한 것은 `docs/Implementation_Status.md` 마지막 절.

@@ -35,11 +35,26 @@ export const accountOf = (remote, user) => {
   return `${user}@${host}`
 }
 
-export function storeFor(repo) {
+/** 글자 수 → 대략의 바이트 (base64 는 3/4) */
+const sizeOf = (s, b64) => (s ? (b64 ? Math.floor(s.length * 3 / 4) : new TextEncoder().encode(s).length) : 0)
+
+/**
+ * `meter` 를 주면 요청 수와 오간 바이트를 센다 — 동기화 한 번이 얼마나 주고받는지 (useSync 가 기록에 남긴다).
+ * 머리글 · TLS 는 빠지므로 실제보다 조금 적다
+ */
+export function storeFor(repo, meter = null) {
   const account = accountOf(repo.remote, repo.user)
-  const transport = ({ method, url, headers = [], body, body_b64, binary }) => rawInvoke('dav_request', {
-    req: { method, url, account, user: repo.user, headers, body: body ?? null, body_b64: body_b64 ?? null, binary: !!binary },
-  })
+  const transport = async ({ method, url, headers = [], body, body_b64, binary }) => {
+    const r = await rawInvoke('dav_request', {
+      req: { method, url, account, user: repo.user, headers, body: body ?? null, body_b64: body_b64 ?? null, binary: !!binary },
+    })
+    if (meter) {
+      meter.req++
+      meter.up += sizeOf(body) + sizeOf(body_b64, true)
+      meter.down += sizeOf(r?.body, binary)
+    }
+    return r
+  }
   return davClient(repo.remote, transport)
 }
 

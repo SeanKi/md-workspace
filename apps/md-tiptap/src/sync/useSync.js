@@ -45,8 +45,10 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
       try {
         await cb.current.beforeSync?.(repo)
         const deviceName = s.deviceName || `PC-${s.deviceId.slice(-4)}`
+        const meter = { req: 0, up: 0, down: 0 }
+        const t0 = performance.now()
         const r = await syncRepo({
-          root: repo.path, store: storeFor(repo), fs: tauriFs,
+          root: repo.path, store: storeFor(repo, meter), fs: tauriFs,
           device: s.deviceId, deviceName, author: s.authorName || deviceName,
           want: opts.want ?? [], only: opts.only ?? null, full: !!opts.full,
           progress: (m) => patch(repo.id, { msg: m }),
@@ -60,7 +62,11 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
           bits.push(`${r.failed.length}개 실패 — 다음에 다시`)
           for (const f of r.failed.slice(0, 20)) note(`동기화 일부 실패 ${repo.name}: ${f}`)
         }
-        patch(repo.id, { busy: false, at: Date.now(), catalog: r.catalog, msg: bits.join(' ') || '맞음' })
+        // 한 번에 얼마나 걸리고 얼마나 오갔나 — 느리다 싶을 때 볼 곳 (.mdlog · ⟳ 단추 풍선)
+        const kb = (n) => (n < 1024 ? `${n}B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)}KB`)
+        const cost = `${((performance.now() - t0) / 1000).toFixed(1)}초 · 요청 ${meter.req} · ↑${kb(meter.up)} ↓${kb(meter.down)}${r.fast ? ' · 도장 그대로' : ''}`
+        note(`동기화 ${repo.name}${opts.full ? ' (전체 점검)' : opts.only ? ' (저장한 것만)' : ''}: ${cost}`)
+        patch(repo.id, { busy: false, at: Date.now(), catalog: r.catalog, msg: bits.join(' ') || '맞음', cost })
         await cb.current.afterSync?.(repo, r)
         return r
       } catch (e) {

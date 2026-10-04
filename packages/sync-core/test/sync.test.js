@@ -318,3 +318,18 @@ test('도장 — 아무것도 안 바뀌었으면 원격에 한 번만 묻고 �
   // 전체 점검은 도장을 믿지 않는다
   assert.ok(!(await A.sync({ full: true })).fast)
 })
+
+test('저장소 찾기 — 상위 폴더 아래 동기화 저장소들만 고른다', async () => {
+  const { findRepos, davClient } = await import('../src/remote.js')
+  const w = world()
+  const A = w.dev('A', { 'a.md': DOC })
+  await A.sync()                                         // notes/ 가 저장소가 된다
+  // 동기화 기록이 없는 평범한 폴더
+  const parent = davClient('http://fake/dav', w.server.transport)
+  await parent.mkdirs('plain')
+  await parent.put('plain/x.md', '# x')
+  const found = await findRepos(parent)
+  assert.deepEqual(found.map((r) => r.name), ['notes'])
+  // 저장소 주소 자체를 넣으면 그것 하나
+  assert.deepEqual((await findRepos(w.server.client())).map((r) => r.self), [true])
+})

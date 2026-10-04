@@ -27,6 +27,9 @@ const EXTS: [&str; 3] = [".md", ".markdown", ".mdx"];
 const PROG_ID: &str = "MDTiptap.md";
 const VERB: &str = "MDTiptap.Open";
 const MENU_TEXT: &str = "MDNotePad+로 열기";
+/// "기본 앱" 목록에 보일 이름과 그 설명 키 (RegisteredApplications)
+const APP_NAME: &str = "MDNotePad+";
+const CAPS_KEY: &str = r"Software\MDNotePadPlus\Capabilities";
 
 fn current_exe() -> Result<String, String> {
     std::env::current_exe()
@@ -125,8 +128,45 @@ mod win {
             set_default(&c, &format!(r"{verb}\command"), &command)?;
         }
 
+        // 5. "기본 앱" 목록에 이름으로 — 설정 → 기본 앱 에 MDNotePad+ 쪽이 생겨 거기서 .md 를 고를 수 있다
+        //    (choose_default 가 그 쪽을 바로 연다). 기본 앱을 정하는 건 여전히 사용자다
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (caps, _) = hkcu.create_subkey(CAPS_KEY).map_err(|e| e.to_string())?;
+        caps.set_value("ApplicationName", &APP_NAME.to_string()).map_err(|e| e.to_string())?;
+        caps.set_value("ApplicationDescription", &"마크다운 위지윅 편집기".to_string()).map_err(|e| e.to_string())?;
+        let (fa, _) = hkcu.create_subkey(format!(r"{CAPS_KEY}\FileAssociations")).map_err(|e| e.to_string())?;
+        for ext in EXTS {
+            fa.set_value(ext, &PROG_ID.to_string()).map_err(|e| e.to_string())?;
+        }
+        let (ra, _) = hkcu.create_subkey(r"Software\RegisteredApplications").map_err(|e| e.to_string())?;
+        ra.set_value(APP_NAME, &CAPS_KEY.to_string()).map_err(|e| e.to_string())?;
+
         notify_shell();
         Ok(format!("등록 완료 · {}", EXTS.join(" ")))
+    }
+
+    /// 설정 → 기본 앱 의 MDNotePad+ 쪽을 연다. 거기서 .md 를 눌러 이 앱으로 바꾸면 두 번 눌러 열기가 이 앱이 된다.
+    /// Windows 8 부터 프로그램이 스스로 기본 앱이 될 수는 없다 (UserChoice 해시) — 사용자가 한 번 골라야 한다
+    pub fn choose_default() -> Result<String, String> {
+        let registered = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey(r"Software\RegisteredApplications")
+            .and_then(|k| k.get_value::<String, _>(APP_NAME))
+            .is_ok();
+        let uri = if registered {
+            // `+` 는 주소에서 공백으로 읽히므로 %2B
+            format!("ms-settings:defaultapps?registeredAppUser={}", APP_NAME.replace('+', "%2B"))
+        } else {
+            "ms-settings:defaultapps".to_string()
+        };
+        std::process::Command::new("explorer")
+            .arg(&uri)
+            .spawn()
+            .map_err(|e| format!("설정을 열지 못했습니다: {e}"))?;
+        Ok(if registered {
+            "설정이 열렸습니다 — .md 를 눌러 MDNotePad+ 를 고르세요".into()
+        } else {
+            "설정이 열렸습니다 — 먼저 “등록” 을 누르면 MDNotePad+ 쪽이 바로 열립니다".into()
+        })
     }
 
     pub fn unregister() -> Result<String, String> {
@@ -144,6 +184,12 @@ mod win {
             ) {
                 let _ = k.delete_value(PROG_ID);
             }
+        }
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let _ = hkcu.delete_subkey_all(r"Software\MDNotePadPlus");
+        if let Ok(k) = hkcu.open_subkey_with_flags(r"Software\RegisteredApplications", winreg::enums::KEY_READ | winreg::enums::KEY_WRITE) {
+            let _ = k.delete_value(APP_NAME);
         }
 
         notify_shell();
@@ -168,6 +214,9 @@ mod win {
     pub fn unregister() -> Result<String, String> {
         Err("Windows 에서만 지원합니다.".into())
     }
+    pub fn choose_default() -> Result<String, String> {
+        Err("Windows 에서만 지원합니다.".into())
+    }
 }
 
 #[tauri::command]
@@ -183,4 +232,9 @@ pub fn assoc_register() -> Result<String, String> {
 #[tauri::command]
 pub fn assoc_unregister() -> Result<String, String> {
     win::unregister()
+}
+
+#[tauri::command]
+pub fn assoc_choose_default() -> Result<String, String> {
+    win::choose_default()
 }

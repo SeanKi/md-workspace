@@ -616,3 +616,14 @@ body.row-resizing, body.row-resizing * { cursor: row-resize !important; user-sel
 .repo-move button { font-size: 9px; line-height: 1; padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: #8a919a; cursor: pointer; }
 .repo-move button:hover:not(:disabled) { background: #d5dae1; color: #333; }
 .repo-move button:disabled { opacity: .3; cursor: default; }
+
+/* 원격에서 가져오기 — 찾은 저장소 목록 */
+.remote-dialog .found-repos { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow: auto; padding: 8px 10px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fafbfc; }
+.remote-dialog .found-repos label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+
+/* PC → 폰 QR */
+.qr-send .qr { display: flex; justify-content: center; padding: 8px; background: #fff; }
+.qr-send .qr svg { width: min(340px, 80vw); height: auto; }
+.modal .hint.bad, .qr-send .hint.bad { color: #b42318; }
+.remote-dialog .qr-scan { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px dashed #9db4ea; border-radius: 8px; background: #f3f7ff; }
+.remote-dialog .qr-scan button { font-size: 16px; padding: 10px; }

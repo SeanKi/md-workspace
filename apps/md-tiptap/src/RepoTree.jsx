@@ -8,7 +8,7 @@ import TreeMenu from './TreeMenu.jsx'
 import NameDialog from './NameDialog.jsx'
 import RemoteLine from './sync/RemoteLine.jsx'
 
-export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, onView, first, last, gitTick, onPathChanged, sync, onSync, onRemote }) {
+export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, onView, first, last, gitTick, onPathChanged, sync, onSync, onRemote, onQr }) {
   // 원격이 붙은 저장소는 로컬이 캐시다 — 받지 않은 문서는 원격 목록(catalog)으로 ☁ 를 그린다
   const catalog = repo.remote ? (sync?.catalog ?? null) : null
   // 펼침 상태는 환경 파일에 남는다 (repo.open · repo.expanded) — 다음에 열 때 그대로
@@ -72,7 +72,7 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, o
       </div>
       <div className="repo-path" title={repo.path}>{repo.path}</div>
       <GitLine repo={repo} tick={gitTick} />
-      <RemoteLine repo={repo} st={sync} onSync={onSync} onSetup={onRemote} />
+      <RemoteLine repo={repo} st={sync} onSync={onSync} onSetup={onRemote} onQr={onQr} />
       {ops.notice && <div className={'node ' + (ops.notice.ok ? 'ok' : 'err')}>{ops.notice.text}</div>}
       {open && (
         error ? <div className="node err">{error}</div>

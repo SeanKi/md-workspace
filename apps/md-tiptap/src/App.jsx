@@ -17,6 +17,7 @@ import ReloadDialog from './ReloadDialog.jsx'
 import { tidyImages } from './imageTrash.js'
 import useSync, { DEFAULT_SYNC_SEC } from './sync/useSync.js'
 import RemoteDialog from './sync/RemoteDialog.jsx'
+import { SendQr } from './sync/QrTransfer.jsx'
 
 /*
  * MD Tiptap — MDSyncNote 의 껍데기(저장소 트리 · 탭 · 검색 · git · 자동 저장)에
@@ -78,7 +79,8 @@ export default function App() {
   const ctxRef = useRef({ path: null, imageDir: DEFAULTS.imageDir })
   // 동기화(useSync)는 아래에서 만든다. 그보다 위의 함수(openDoc · persist · onPathChanged)는 이 ref 로 부른다
   const syncRef = useRef(null)
-  const [remoteDlg, setRemoteDlg] = useState(null)   // { mode: 'connect'|'clone', repo }
+  const [remoteDlg, setRemoteDlg] = useState(null)
+  const [sendQr, setSendQr] = useState(null)   // QR 로 보낼 저장소들 (저장소 줄의 QR 단추 — 하나씩)   // { mode: 'connect'|'clone', repo }
   const tabsRef = useRef(tabs)
   tabsRef.current = tabs
   const activeRef = useRef(active)
@@ -445,13 +447,40 @@ export default function App() {
   const syncProgress = work.map((r) => sync.state[r.id]).find((st) => st?.busy)?.msg ?? ''
   const syncSummary = work.filter((r) => r.remote).map((r) => {
     const st = sync.state[r.id] ?? {}
-    return `${r.name}: ${st.error ? `실패 — ${st.error}` : st.busy ? st.msg || '맞추는 중…' : st.at ? `${st.msg} (${new Date(st.at).toLocaleTimeString()})` : '아직'}`
+    return `${r.name}: ${st.error ? `실패 — ${st.error}` : st.busy ? st.msg || '맞추는 중…' : st.at ? `${st.msg} (${new Date(st.at).toLocaleTimeString()} · ${st.cost ?? ''})` : '아직'}`
   }).join('\n')
 
   /** 원격 연결 · 가져오기 대화상자의 [연결]/[가져오기] */
-  const onRemoteOk = async ({ remote, user, path, name }) => {
+  const onRemoteOk = async ({ remote, user, path, name, items, parent, creds }) => {
     const d = remoteDlg
     setRemoteDlg(null)
+    // QR 로 받은 비밀번호 — 저장소를 더하기 전에 넣어 둔다 (첫 동기화가 바로 쓴다)
+    for (const [account, password] of Object.entries(creds ?? {})) {
+      await invoke('cred_set', { account, password }).catch((e) => note(`비밀번호 저장 실패 ${account}: ${e}`))
+    }
+    // 저장소 찾기로 여럿을 골랐다 — 하나씩 가져온다. PC 는 고른 폴더 아래에 이름으로 만든다
+    if (items) {
+      let next = [...cfgRef.current.repos]
+      const added = []
+      for (const it of items) {
+        let dir
+        if (IS_MOBILE) dir = await invoke('app_repo_dir', { name: it.name }).catch(() => null)
+        else {
+          dir = `${parent}/${it.name}`
+          // 이미 있는 폴더면 그대로 쓴다 — 처음 맞출 때 같은 문서끼리 합친다
+          await invoke('create_dir', { path: dir }).catch(() => {})
+        }
+        if (!dir || next.some((r) => samePath(r.path, dir))) continue
+        const repo = { id: `r${++seq}-${Date.now()}`, name: it.name, kind: 'local', path: dir, remote: it.remote, user: it.user }
+        next = [...next, repo]
+        added.push(repo)
+      }
+      setRepos(next)
+      save3(null, next, null)
+      setStatus(added.length ? `${added.map((r) => r.name).join(', ')} — 원격 목록을 받는 중…` : '새로 가져올 저장소가 없습니다')
+      for (const r of added) sync.run(r).catch(() => {})
+      return
+    }
     if (d.mode === 'connect') {
       const next = cfgRef.current.repos.map((r) => (r.id === d.repo.id ? { ...r, remote, user } : r))
       setRepos(next)
@@ -638,7 +667,8 @@ export default function App() {
                           onPathChanged={onPathChanged}
                           sync={sync.state[r.id]}
                           onSync={() => sync.run(r).catch(() => {})}
-                          onRemote={() => setRemoteDlg({ mode: 'connect', repo: r })} />
+                          onRemote={() => setRemoteDlg({ mode: 'connect', repo: r })}
+                          onQr={() => setSendQr([r])} />
               ))}
         </div>
       </aside>
@@ -704,8 +734,9 @@ export default function App() {
           )}
       </main>
 
+      {sendQr && <SendQr repos={sendQr} onClose={() => setSendQr(null)} />}
       {remoteDlg && (
-        <RemoteDialog mode={remoteDlg.mode} repo={remoteDlg.repo}
+        <RemoteDialog mode={remoteDlg.mode} repo={remoteDlg.repo} known={repos.filter((r) => r.remote).map((r) => ({ remote: r.remote, user: r.user ?? '' }))}
                       onOk={onRemoteOk} onCancel={() => setRemoteDlg(null)}
                       onUnlink={remoteDlg.mode === 'connect' ? onRemoteUnlink : null} />
       )}

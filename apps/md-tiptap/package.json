@@ -1,7 +1,7 @@
 {
   "name": "md-tiptap",
   "private": true,
-  "version": "1.16.1",
+  "version": "1.16.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,12 +14,13 @@
     "@md/editor-core": "*",
     "@md/editor-tiptap": "*",
     "@md/md-bridge": "*",
+    "@md/sync-core": "*",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-barcode-scanner": "~2.4.0",
     "@tauri-apps/plugin-dialog": "^2",
     "mermaid": "^11.17.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@md/sync-core": "*"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

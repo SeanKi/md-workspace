@@ -3,6 +3,7 @@
 //! md-editor 에서 가져온 모듈 그대로다.
 
 mod cli;
+mod transfer;
 mod config;
 mod git;
 mod open_with;
@@ -93,6 +94,10 @@ pub fn run() {
 
     let builder = tauri::Builder::default();
 
+    // 폰: PC 화면의 QR 을 읽어 저장소 · 비밀번호를 받는다 (sync/QrTransfer.jsx) — 글자를 치지 않게
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+
     // 전체 모드(--sync)는 하나만 뜬다 — 이미 떠 있으면 새 창 대신 그 창의 탭으로 연다. 저장소 동기화가
     // 두 곳에서 돌면 기록 파일을 서로 덮는다. 단순 모드(기본)는 메모장처럼 창마다 따로 뜬다 — 이 잠금을
     // 걸지 않으므로 전체 모드 창이 떠 있어도 단순 모드 창은 새로 뜬다
@@ -147,6 +152,7 @@ pub fn run() {
             git::git_init,
             git::git_commit,
             open_with::open_simple,
+            transfer::transfer_qr,
             open_with::open_in_explorer,
             config::config_load,
             config::config_save,
@@ -156,6 +162,7 @@ pub fn run() {
             win_assoc::assoc_status,
             win_assoc::assoc_register,
             win_assoc::assoc_unregister,
+            win_assoc::assoc_choose_default,
             md_core::diag::log_write,
             md_core::diag::log_dir,
             md_core::diag::log_tail,

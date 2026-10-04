@@ -131,7 +131,7 @@ export default function useTreeOps({ onOpen, onPathChanged, remote = false }) {
     if (!IS_MOBILE) {
       items.push(t.is_dir
         ? { label: '탐색기에서 열기', run: () => openElsewhere(t) }
-        : { label: 'MDNotePad+ 로 열기 (단순 모드 새 창)', run: () => openElsewhere(t) })
+        : { label: '단순 모드로 열기 (새 창)', run: () => openElsewhere(t) })
     }
     items.push({ label: '경로 복사', run: () => copyPath(t) })
 

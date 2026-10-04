@@ -14,7 +14,9 @@ const short = (url) => {
 }
 const time = (t) => (t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')
 
-export default function RemoteLine({ repo, st, onSync, onSetup }) {
+const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
+
+export default function RemoteLine({ repo, st, onSync, onSetup, onQr }) {
   const stop = (fn) => (e) => { e.stopPropagation(); fn() }
   if (!repo.remote) {
     return (
@@ -34,6 +36,8 @@ export default function RemoteLine({ repo, st, onSync, onSetup }) {
       {cloud ? <span className="sync-msg" title="원격에만 있고 아직 받지 않은 문서 — 열면 받는다">☁ {cloud}</span> : null}
       <button onClick={stop(onSync)} disabled={st?.busy} title="지금 맞추기">⟳</button>
       <button onClick={stop(onSetup)} title="원격 설정">⚙</button>
+      {/* 이 저장소 하나만 폰으로 — 폰의 원격 연결 · 가져오기에서 📷 로 읽는다 */}
+      {!IS_MOBILE && onQr && <button onClick={stop(onQr)} title="이 저장소의 원격 설정을 QR 로 — 폰에서 읽으면 주소 · 사용자 · 비밀번호가 들어갑니다">QR</button>}
     </div>
   )
 }

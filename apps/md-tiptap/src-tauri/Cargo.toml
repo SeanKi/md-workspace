@@ -1,6 +1,6 @@
 [package]
 name = "md-tiptap"
-version = "1.16.1"
+version = "1.16.2"
 edition = "2021"
 
 [lib]
@@ -15,6 +15,8 @@ tauri = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 md-core = { workspace = true }
 serde = { workspace = true }
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+serde_json = "1.0.151"
 
 [target.'cfg(windows)'.dependencies]
 # .md 를 여는 것으로 등록된 프로그램을 찾는다 (open_with.rs)
@@ -23,3 +25,6 @@ winreg = "0.56"
 # 두 번째로 실행되면 첫 창에 파일을 넘기고 끝난다 (lib.rs). 폰에는 해당이 없다
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "=2.4.0"

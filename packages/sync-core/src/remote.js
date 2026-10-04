@@ -193,3 +193,24 @@ export async function probe(dav) {
     return { ok: false, steps }
   }
 }
+
+/**
+ * 이 주소 아래의 동기화 저장소들 — 바로 아래 폴더 중 `.mdsync/devices` 가 있는 것.
+ * 폰에서 저장소마다 주소를 치지 않고, 상위 폴더 하나와 계정만 넣고 골라 가져오게 (RemoteDialog).
+ * 주소 자체가 저장소면 `{ name: '', self: true }` 도 준다
+ */
+export async function findRepos(dav, { concurrency = 4 } = {}) {
+  const isRepo = async (p) => (await dav.list(p ? `${p}/.mdsync/devices` : '.mdsync/devices')).some((e) => e.isDir)
+  const out = []
+  if (await isRepo('')) out.push({ name: '', self: true })
+  const dirs = (await dav.list('')).filter((e) => e.isDir && !e.name.startsWith('.'))
+  let i = 0
+  const run = async () => {
+    while (i < dirs.length) {
+      const d = dirs[i++]
+      if (await isRepo(d.name)) out.push({ name: d.name })
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, dirs.length) }, run))
+  return out.sort((a, b) => a.name.localeCompare(b.name))
+}

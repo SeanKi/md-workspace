@@ -51,9 +51,9 @@ const newStamp = (device) => `${device}-${Date.now().toString(36)}-${Math.random
 /**
  * 지난번 이후 로컬에 바뀐 것이 있나 — 파일 목록(크기·시각)만 견준다. 디스크만 보므로 빠르다
  */
-async function localChanged(fs, root, repoState) {
+async function localChanged(listDocs, listAssets, repoState) {
   if (Object.keys(repoState.del).length) return true
-  const list = await fs.list(root)
+  const list = await listDocs()
   const known = new Set()
   for (const f of list) {
     const seen = repoState.files[f.rel]
@@ -62,8 +62,8 @@ async function localChanged(fs, root, repoState) {
   }
   // 캐시에서 없어진 것 — 맞출 때 기록을 정리해야 한다
   if (Object.keys(repoState.files).some((p) => !known.has(p))) return true
-  if (fs.listAssets) {
-    for (const a of await fs.listAssets(root)) {
+  if (listAssets) {
+    for (const a of await listAssets()) {
       const p = repoState.assets[a.rel]
       if (!p || p.size !== a.size || p.mtime !== a.mtime) return true
     }
@@ -138,12 +138,18 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   if ((await fs.read(ctx.abs(`${STATE}/.gitignore`))) == null) await fs.write(ctx.abs(`${STATE}/.gitignore`), '*\n')
   const repoState = await loadRepoState(fs, root)
 
+  // 폴더 걷기는 한 번만 — 큰 저장소는 이것이 동기화 시간의 대부분이다 (문서 321개 저장소: 9초). 도장 확인에서 걸은 것을 그대로 쓴다
+  let docsListed = null
+  let assetsListed = null
+  const listDocs = async () => (docsListed ??= await fs.list(root))
+  const listAssets = async () => (assetsListed ??= await fs.listAssets(root))
+
   // 빠른 길 — 원격 도장이 지난번 그대로고 로컬도 그대로면 볼 것이 없다.
   // 전체 점검 · 문서 받기(want) 는 늘 제대로 본다
   progress('원격 확인')
   const stampAtStart = await store.get(STAMP).catch(() => null)
   if (!full && !want.length && stampAtStart != null && stampAtStart === repoState.stamp && repoState.catalog
-      && Date.now() - repoState.slowAt < SLOW_EVERY_MS && !(await localChanged(fs, root, repoState))) {
+      && Date.now() - repoState.slowAt < SLOW_EVERY_MS && !(await localChanged(listDocs, fs.listAssets && listAssets, repoState))) {
     const cached = new Set(Object.keys(repoState.files).map(docKey))
     stat.catalog = repoState.catalog.map((c) => ({ path: c.path, cached: cached.has(docKey(c.path)) }))
     stat.fast = true
@@ -161,7 +167,7 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   const myIndex = JSON.parse((await store.get(`${ctx.mine}/index.json`)) ?? 'null') ?? { docs: {} }
 
   progress('캐시 확인')
-  const local = new Map((await fs.list(root)).map((f) => [docKey(f.rel), f]))
+  const local = new Map((await listDocs()).map((f) => [docKey(f.rel), f]))
   const wanted = new Set(want.map(docKey))
   const onlySet = only ? new Set(only.map(docKey)) : null
   // 맞출 문서: 캐시에 있는 것 · 받으려는 것 · 트리에서 지운 것
@@ -225,7 +231,7 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   // 기다리면 다른 기기에서는 글만 오고 그림은 빈 칸이다 (목록 걷기는 Rust 라 빠르다)
   if (fs.listAssets) {
     progress('그림 확인')
-    const assets = await fs.listAssets(root)
+    const assets = await listAssets()
     let todo = assets.filter((a) => {
       const p = repoState.assets[a.rel]
       return !p || p.size !== a.size || p.mtime !== a.mtime
