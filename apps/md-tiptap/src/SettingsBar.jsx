@@ -3,6 +3,9 @@ import { normalizeImageDir, logDir } from './core.js'
 import { mdNotepadPath, pickMdNotepad } from './shell.js'
 import { SavePdf, WinAssoc } from './PdfAndAssoc.jsx'
 
+/** 예전 설정(켜고 끄기)도 받는다 — 켜 둔 것은 기본값(원격만)으로 */
+export const shrinkMode = (v) => (v === false || v === 'false' || v === 'never' ? 'never' : v === 'always' ? 'always' : 'remote')
+
 /** 톱니바퀴를 눌렀을 때 나오는 설정 줄. */
 export default function SettingsBar({ settings, onChange, opsFallbackSec, configPath, docPath }) {
   // 화면이 멎었을 때 볼 기록이 어디에 쌓이는지 알려 준다 (평소엔 볼 일이 없다)
@@ -21,6 +24,18 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
         이미지 저장 폴더
         <input value={settings.imageDir} placeholder=".image"
                onChange={(e) => onChange({ imageDir: e.target.value })} />
+      </label>
+      <label title="1MB 가 넘거나 긴 변이 이보다 큰 그림은 줄여서 WebP 로 저장합니다">
+        큰 그림 줄이기
+        <select value={shrinkMode(settings.imageShrink)} onChange={(e) => onChange({ imageShrink: e.target.value })}>
+          <option value="remote">원격 저장소만</option>
+          <option value="always">항상</option>
+          <option value="never">안 함</option>
+        </select>
+        <input type="number" min="640" step="320" style={{ width: 70 }}
+               disabled={shrinkMode(settings.imageShrink) === 'never'}
+               value={settings.imageMaxSide ?? 2560}
+               onChange={(e) => onChange({ imageMaxSide: Number(e.target.value) })} />px
       </label>
       <label>
         자동 저장(초)
@@ -67,6 +82,22 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
         {settings.editorPath && (
           <button type="button" onClick={() => onChange({ editorPath: '' })}>자동으로</button>
         )}
+      </div>
+      <div className="row-line">
+        <span>동기화</span>
+        <label>이 기기 이름
+          <input value={settings.deviceName ?? ''} placeholder={settings.deviceId ? `PC-${settings.deviceId.slice(-4)}` : ''}
+                 onChange={(e) => onChange({ deviceName: e.target.value })} style={{ width: 120 }} />
+        </label>
+        <label>내 이름 (이력에 "누가")
+          <input value={settings.authorName ?? ''} placeholder="비우면 기기 이름"
+                 onChange={(e) => onChange({ authorName: e.target.value })} style={{ width: 120 }} />
+        </label>
+        <label>자동 동기화(초)
+          <input type="number" min="0" step="30" style={{ width: 70 }} value={settings.syncSec ?? 120}
+                 onChange={(e) => onChange({ syncSec: Number(e.target.value) })} />
+        </label>
+        <span className="hint">0 이면 끔 · 저장할 때와 ⟳ 를 누를 때는 늘 맞춘다</span>
       </div>
       <SavePdf docPath={docPath} />
       <WinAssoc />

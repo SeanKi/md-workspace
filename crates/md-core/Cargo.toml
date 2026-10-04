@@ -1,6 +1,6 @@
 [package]
 name = "md-core"
-version = "0.15.0"
+version = "0.16.0"
 edition = "2021"
 
 [dependencies]
@@ -8,6 +8,8 @@ tauri = { workspace = true }
 base64 = { workspace = true }
 serde = { workspace = true }
 notify = { workspace = true }
+# 동기화 — WebDAV 요청 (dav.rs). 작고 동기식이라 커맨드 스레드에서 그냥 기다린다
+ureq = "2"
 
 # 휴지통은 데스크톱에만 있다. Android·iOS 는 `.mdtrash/` 로 옮긴다 (commands.rs delete_path)
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
@@ -17,4 +19,6 @@ trash = { workspace = true }
 # WebView2 의 PrintToPdf 로 PDF 를 만든다 (pdf.rs).
 # tauri 가 쓰는 것과 같은 버전이어야 타입이 맞는다.
 webview2-com = "0.38"
+# 동기화 서버 비밀번호 — Windows 자격 증명 관리자 (cred.rs)
+keyring = { version = "3", features = ["windows-native"] }
 windows = { version = "0.61", features = ["Win32_Storage_FileSystem"] }

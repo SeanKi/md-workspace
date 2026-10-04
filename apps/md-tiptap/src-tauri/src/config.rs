@@ -27,8 +27,7 @@ const FILE: &str = "MDTiptap.ini";
 
 static DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 
-/// 설정 파일을 둘 폴더를 정한다 (폰). 정하지 않으면 실행 파일 옆이다
-#[cfg_attr(not(mobile), allow(dead_code))]
+/// 설정 파일을 둘 폴더를 정한다 (폰 · `--home`). 정하지 않으면 실행 파일 옆이다
 pub fn set_dir(dir: PathBuf) {
     let _ = std::fs::create_dir_all(&dir);
     let _ = DIR.set(dir);

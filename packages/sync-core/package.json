@@ -1,0 +1,20 @@
+{
+  "name": "@md/sync-core",
+  "private": true,
+  "version": "0.16.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@md/md-bridge": "*",
+    "node-diff3": "^3.2.1"
+  },
+  "devDependencies": {
+    "webdav-server": "^2.6.3"
+  }
+}

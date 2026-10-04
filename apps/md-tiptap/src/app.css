@@ -21,6 +21,14 @@
   background: #dcdfe4;
 }
 .side-split:hover { background: #2563eb; }
+/* 손가락으로 끌 때 브라우저가 스크롤로 가져가지 않게 */
+.side-split, .search-split { touch-action: none; }
+/* 터치 화면은 5px 를 손가락으로 잡을 수 없다 — 잡는 자리를 넓힌다 */
+@media (pointer: coarse) {
+  .side-split { width: 14px; background: #e6e8ec; position: relative; }
+  .side-split::after { content: ''; position: absolute; left: 5px; top: 50%; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: #a9b1bc; }
+  .search-split { min-height: 14px; }
+}
 /* 끄는 동안 본문 위를 지나가도 커서가 바뀌지 않게 */
 body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
 .side-head {
@@ -553,3 +561,40 @@ body.row-resizing, body.row-resizing * { cursor: row-resize !important; user-sel
 .titlebar .path.selectable { user-select: text; -webkit-user-select: text; cursor: text; }
 /* 제목으로 데려갈 때 sticky 툴바 밑에 가리지 않게 */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 { scroll-margin-top: 64px; }
+
+/* --- 동기화 (원격 = WebDAV) --- */
+.repo-sync { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 0 8px 6px 22px; font-size: 10px; }
+.repo-sync button { font: inherit; font-size: 10px; padding: 1px 6px; border: 1px solid #cfd4da; border-radius: 4px; background: #fff; cursor: pointer; }
+.repo-sync button:hover:not(:disabled) { background: #eceff3; }
+.repo-sync button:disabled { color: #b8bdc4; cursor: default; }
+.sync-on { color: #1d4ed8; font-weight: 600; }
+.sync-off { color: #9aa0a8; }
+.sync-err { color: #b91c1c; }
+.sync-msg { color: #7a8087; }
+/* 아직 받지 않은 ☁ 문서 — 흐리게, 누르면 받는다 */
+.node.remote { color: #7c8aa3; font-style: italic; }
+.node.remote .ico { opacity: .8; }
+
+.remote-dialog { width: min(560px, calc(100vw - 32px)); }
+.remote-dialog label { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 12px; font-weight: 600; color: #374151; }
+.remote-dialog input { font: inherit; font-size: 13px; font-weight: 400; padding: 6px 9px; border: 1px solid #cfd4da; border-radius: 6px; }
+.remote-dialog .pick { display: flex; gap: 6px; }
+.remote-dialog .pick input { flex: 1; }
+.remote-dialog .hint { font-size: 11px; color: #7a8087; margin-bottom: 10px; }
+.remote-dialog .probe { margin: 0 0 12px; padding: 8px 12px 8px 26px; font-size: 12px; border-radius: 6px; }
+.remote-dialog .probe.ok { background: #ecfdf3; color: #14532d; }
+.remote-dialog .probe.bad { background: #fef2f2; color: #7f1d1d; }
+.modal-row { display: flex; gap: 8px; align-items: center; }
+.modal-row .spacer { flex: 1; }
+.modal-row button { font: inherit; font-size: 13px; padding: 6px 14px; border: 1px solid #d0d5db; border-radius: 6px; background: #f6f7f9; cursor: pointer; }
+.modal-row button:disabled { opacity: .5; cursor: default; }
+.modal-row button.primary { color: #fff; background: #2563eb; border-color: #2563eb; }
+.modal-row button.danger { color: #b91c1c; }
+.row-line label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; }
+
+/* 동기화 단추 — 도는 동안 화살표가 돈다 */
+.titlebar .sync-btn:disabled { opacity: .45; }
+.titlebar .sync-btn.busy { opacity: 1; }
+.sync-btn .sync-ico { display: inline-block; }
+.sync-btn.busy .sync-ico { animation: sync-spin 1s linear infinite; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }

@@ -17,9 +17,13 @@ import FindBar from './FindBar.jsx'
 const MODES = [['rich-text', '위지윅'], ['source', '원본'], ['diff', '비교']]
 const keep = (e) => e.preventDefault()
 
-function ModeSwitch({ mode, onMode, split, onSplit }) {
+function ModeSwitch({ mode, onMode, split, onSplit, onFind }) {
   return (
     <span className="tt-modes">
+      {/* 찾기 — 폰·태블릿은 Ctrl+F 를 누를 수 없다 */}
+      {mode !== 'diff' && (
+        <button type="button" className="find-btn" title="본문에서 찾기 (Ctrl+F)" onMouseDown={keep} onClick={onFind}>🔍</button>
+      )}
       {MODES.map(([m, label]) => (
         <button key={m} type="button" className={mode === m ? 'on' : ''} onMouseDown={keep} onClick={() => onMode(m)}>{label}</button>
       ))}
@@ -63,27 +67,32 @@ export default function SplitEditor({ markdown, ctxRef, wide, viewMode = 'rich-t
   leave.current = onLeave
   useLayoutEffect(() => () => leave.current?.(current()), [current])
 
-  // Ctrl+F — 브라우저(WebView) 의 찾기 대신 본문 찾기 줄. 고른 글자가 있으면 그것으로 찾는다
+  // 찾기 줄을 연다. 고른 글자가 있으면 그것으로 찾는다
+  const openFind = useCallback(() => {
+    let initial = ''
+    const ed = top.current?.editor
+    if (modeRef.current === 'rich-text' && ed) {
+      const { from, to } = ed.state.selection
+      initial = ed.state.doc.textBetween(from, to, ' ')
+    } else if (textarea.current) {
+      const t = textarea.current
+      initial = t.value.slice(t.selectionStart, t.selectionEnd)
+    }
+    // 여러 줄이나 긴 선택은 찾을 말이 아니라 그냥 고른 것이다
+    if (initial.includes('\n') || initial.length > 80) initial = ''
+    setFind((f) => ({ initial: initial || f?.initial || '', n: (f?.n ?? 0) + 1 }))
+  }, [])
+
+  // Ctrl+F — 브라우저(WebView) 의 찾기 대신 본문 찾기 줄
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'f' || e.shiftKey || e.altKey) return
       e.preventDefault()
-      let initial = ''
-      const ed = top.current?.editor
-      if (modeRef.current === 'rich-text' && ed) {
-        const { from, to } = ed.state.selection
-        initial = ed.state.doc.textBetween(from, to, ' ')
-      } else if (textarea.current) {
-        const t = textarea.current
-        initial = t.value.slice(t.selectionStart, t.selectionEnd)
-      }
-      // 여러 줄이나 긴 선택은 찾을 말이 아니라 그냥 고른 것이다
-      if (initial.includes('\n') || initial.length > 80) initial = ''
-      setFind((f) => ({ initial: initial || f?.initial || '', n: (f?.n ?? 0) + 1 }))
+      openFind()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [openFind])
 
   const findBar = find && mode !== 'diff' && (
     <FindBar key={`${mode}-${gen}-${find.n}`} initial={find.initial} onClose={() => setFind(null)}
@@ -138,7 +147,8 @@ export default function SplitEditor({ markdown, ctxRef, wide, viewMode = 'rich-t
     window.addEventListener('pointerup', up)
   }
 
-  const switcher = <ModeSwitch mode={mode} onMode={switchMode} split={ratio > 0} onSplit={onSplit} />
+  const switcher = <ModeSwitch mode={mode} onMode={switchMode} split={ratio > 0} onSplit={onSplit}
+    onFind={() => (find ? setFind(null) : openFind())} />
   const wrap = 'editor-wrap' + (wide ? ' wide' : '')
 
   if (mode !== 'rich-text') {

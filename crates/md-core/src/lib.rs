@@ -17,7 +17,10 @@
 //! ```
 
 pub mod commands;
+pub mod cred;
+pub mod dav;
 pub mod diag;
 pub mod pdf;
 pub mod search;
+pub mod sync_fs;
 pub mod watcher;

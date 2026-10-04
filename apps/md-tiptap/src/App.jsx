@@ -4,16 +4,19 @@ import { invoke, isTauri, startDiag, useBusy, note, samePath, pushRecent, dropRe
 import RepoTree from './RepoTree.jsx'
 import SearchPanel, { SEARCH_HEIGHT } from './SearchPanel.jsx'
 import SideSplit, { SIDE_DEFAULT } from './SideSplit.jsx'
-import SettingsBar from './SettingsBar.jsx'
+import SettingsBar, { shrinkMode } from './SettingsBar.jsx'
 import NoteTabs from './NoteTabs.jsx'
 import usePendingCommits from './usePendingCommits.js'
 import { baseName, repoOf } from './repos.js'
-import { loadConfig, saveConfig, onConfigError } from './config.js'
+import { loadConfig, saveConfig, onConfigError, flushConfig } from './config.js'
 import { gitCommit, commitMessage } from './git.js'
 import { SAMPLE } from './sample.js'
 import useExternalChanges from './useExternalChanges.js'
 import useNotepad, { pickOpenPaths, pickSavePath } from './useNotepad.js'
 import ReloadDialog from './ReloadDialog.jsx'
+import { tidyImages } from './imageTrash.js'
+import useSync, { DEFAULT_SYNC_SEC } from './sync/useSync.js'
+import RemoteDialog from './sync/RemoteDialog.jsx'
 
 /*
  * MD Tiptap — MDSyncNote 의 껍데기(저장소 트리 · 탭 · 검색 · git · 자동 저장)에
@@ -23,11 +26,16 @@ import ReloadDialog from './ReloadDialog.jsx'
 
 const DEFAULTS = {
   imageDir: IMAGE_DIR, autoSaveSec: 60, autoCommit: true, wideLayout: false,
+  // 큰 그림은 넣을 때 줄인다 (images.js shrinkImage) — 'remote' 원격이 붙은 저장소만 · 'always' · 'never'.
+  // 내 PC 폴더에서는 원본이 낫고, 동기화하면 22MB 사진이 기기마다 오가야 한다. imageMaxSide 는 긴 변 픽셀
+  imageShrink: 'remote', imageMaxSide: 2560,
   sideWidth: SIDE_DEFAULT,
   searchHeight: SEARCH_HEIGHT,
   // Tiptap 은 글자마다 문서 전체를 다시 쓰지 않아 큰 문서도 위지윅으로 연다. 원하면 켠다
   bigDocSource: false,
   editorPath: '',
+  // 동기화 — 기기 ID 는 처음 뜰 때 만든다. 이름은 충돌 블록과 이력에 "누가" 로 나온다
+  deviceId: '', deviceName: '', authorName: '', syncSec: DEFAULT_SYNC_SEC,
 }
 const OPS_FALLBACK_SEC = 60
 const MAX_TABS = 30
@@ -52,6 +60,9 @@ export default function App() {
   const active = tabs.find((t) => t.id === activeId) ?? null
 
   const ctxRef = useRef({ path: null, imageDir: DEFAULTS.imageDir })
+  // 동기화(useSync)는 아래에서 만든다. 그보다 위의 함수(openDoc · persist · onPathChanged)는 이 ref 로 부른다
+  const syncRef = useRef(null)
+  const [remoteDlg, setRemoteDlg] = useState(null)   // { mode: 'connect'|'clone', repo }
   const tabsRef = useRef(tabs)
   tabsRef.current = tabs
   const activeRef = useRef(active)
@@ -205,6 +216,16 @@ export default function App() {
     }
     try {
       // MDX 가 아니라 GFM 으로 읽으므로 열기 전에 다듬을 것이 없다
+      // 원격이 붙은 저장소의 ☁ 문서(아직 받지 않은 것)는 지금 받는다
+      const repo = repoOf(cfgRef.current.repos, path)
+      const cloud = isTauri && repo?.remote && !(await invoke('stat_file', { path }))
+      if (cloud) {
+        setStatus('원격에서 받는 중…')
+        await syncRef.current?.fetch(repo, path)
+      } else if (isTauri && repo?.remote) {
+        // 받아 둔 문서 — 열자마자 그 문서만 맞춘다. 다른 기기가 고친 것이 있으면 탭이 곧 다시 읽는다
+        setTimeout(() => syncRef.current?.opened(repo, path), 300)
+      }
       const content = isTauri ? await invoke('read_file', { path })
         : (path.endsWith('diary.md') ? SAMPLE : `# ${baseName(path)}\n\n데모 문서입니다.\n`)
 
@@ -257,10 +278,22 @@ export default function App() {
     if (!t?.path || !t.dirty) return
     if (!isTauri) { setStatus('저장됨(데모)'); setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, dirty: false } : x))); return }
     try {
-      await invoke('write_file', { path: t.path, contents: liveOf(t) })
+      // 지운 그림을 알아내려고 쓰기 전의 글을 둔다 (imageTrash.js)
+      const before = await invoke('read_file', { path: t.path }).catch(() => null)
+      const after = liveOf(t)
+      await invoke('write_file', { path: t.path, contents: after })
       setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, dirty: false } : x)))
       setStatus(`저장됨 ${new Date().toLocaleTimeString()}`)
+      const repo = repoOf(cfgRef.current.repos, t.path)
+      if (before != null) {
+        const root = repo?.path ?? t.path.replace(/[\\/][^\\/]*$/, '')
+        // 커밋보다 먼저 — 그림이 옮겨진 것까지 한 커밋에 담긴다. 실패해도 저장은 된 것이다
+        await tidyImages({ docPath: t.path, before, after, imageDir: cfgRef.current.settings?.imageDir, root })
+          .then((n) => n && setStatus(`저장됨 · 안 쓰는 그림 ${n}개를 휴지통(.mdtrash)으로`))
+          .catch((e) => note(`그림 정리 실패: ${e}`))
+      }
       await commit(t.path)
+      if (repo?.remote) syncRef.current?.saved(repo, t.path)
     } catch (e) {
       setStatus(`저장 실패: ${e}`)
     }
@@ -339,14 +372,90 @@ export default function App() {
   useNotepad(openDoc, configReady)
 
   // 밖에서 바뀐 파일
-  const { conflicts, resolveConflict } = useExternalChanges({
+  const { conflicts, resolveConflict, externalChanged } = useExternalChanges({
     tabs, tabsRef, setTabs, setActiveId, activeIdRef, say: setStatus, liveOf, liveRef,
   })
 
+  /* ---------- 동기화 (원격 = WebDAV) ---------- */
+
+  const sync = useSync({
+    repos, settings, update, ready: configReady,
+    // 맞추기 전에 고친 탭을 모두 저장한다 — 동기화는 파일을 본다
+    beforeSync: () => persistAll(),
+    afterSync: async (repo, r) => {
+      // 동기화가 쓴 파일은 파일 감시가 "우리가 쓴 것" 으로 안다(write_file). 열린 탭은 여기서 다시 읽는다
+      for (const rel of r.changedPaths) {
+        const abs = `${repo.path.replace(/[\\/]+$/, '')}/${rel}`
+        if (tabsRef.current.some((t) => t.path && samePath(t.path, abs))) await externalChanged(abs)
+      }
+      if (r.conflicts) setStatus(`동기화 충돌 ${r.conflicts}곳 — 문서 안의 "⚠ 동기화 충돌" 인용을 확인하세요`)
+      const { settings: cfg } = cfgRef.current
+      if (cfg.autoCommit && r.changedPaths.length) {
+        const by = cfg.deviceName || '다른 기기'
+        gitCommit(repo.path, `동기화 — ${r.changedPaths.length}개 문서 (${by} 에서 맞춤)`)
+          .then((g) => { if (g.committed) setGitTick((n) => n + 1) })
+          .catch(() => { /* git 이 아닌 저장소 */ })
+      }
+    },
+  })
+  syncRef.current = sync
+  const hasRemote = repos.some((r) => r.remote)
+  const syncBusy = repos.some((r) => r.remote && sync.state[r.id]?.busy)
+  const syncSummary = repos.filter((r) => r.remote).map((r) => {
+    const st = sync.state[r.id] ?? {}
+    return `${r.name}: ${st.error ? `실패 — ${st.error}` : st.busy ? st.msg || '맞추는 중…' : st.at ? `${st.msg} (${new Date(st.at).toLocaleTimeString()})` : '아직'}`
+  }).join('\n')
+
+  /** 원격 연결 · 가져오기 대화상자의 [연결]/[가져오기] */
+  const onRemoteOk = async ({ remote, user, path, name }) => {
+    const d = remoteDlg
+    setRemoteDlg(null)
+    if (d.mode === 'connect') {
+      const next = cfgRef.current.repos.map((r) => (r.id === d.repo.id ? { ...r, remote, user } : r))
+      setRepos(next)
+      save3(null, next, null)
+      setStatus(`원격 연결 — 첫 동기화로 ${d.repo.name} 의 문서를 올립니다`)
+      sync.run({ ...d.repo, remote, user }).catch(() => {})
+      return
+    }
+    // 가져오기 — 캐시 폴더를 저장소로 등록하고 목록만 받는다 (문서는 열 때)
+    let dir = path
+    if (IS_MOBILE) dir = await invoke('app_repo_dir', { name })
+    if (!dir) return
+    if (cfgRef.current.repos.some((r) => samePath(r.path, dir))) { setStatus('이미 등록된 폴더입니다'); return }
+    const repo = { id: `r${++seq}-${Date.now()}`, name, kind: 'local', path: dir, remote, user }
+    const next = [...cfgRef.current.repos, repo]
+    setRepos(next)
+    save3(null, next, null)
+    setStatus(`${name} — 원격 목록을 받는 중…`)
+    sync.run(repo).catch(() => {})
+  }
+
+  const onRemoteUnlink = () => {
+    const d = remoteDlg
+    setRemoteDlg(null)
+    const next = cfgRef.current.repos.map((r) => {
+      if (r.id !== d.repo.id) return r
+      const { remote: _r, user: _u, ...rest } = r
+      return rest
+    })
+    setRepos(next)
+    save3(null, next, null)
+    setStatus('원격을 해제했습니다 — 로컬 폴더는 그대로 남습니다')
+  }
+
   ctxRef.current = {
     path: active?.path ?? null, imageDir: settings.imageDir, openFile: openDoc,
+    imageShrink: shrinkMode(settings.imageShrink) === 'always'
+      || (shrinkMode(settings.imageShrink) === 'remote' && !!(active?.path && repoOf(repos, active.path)?.remote)),
+    imageMaxSide: settings.imageMaxSide,
     // 이미지는 문서 폴더 기준이라 새 문서는 저장부터 받는다
     ensureSaved: () => saveAs(activeRef.current),
+    // 그림이 캐시에 없다(다른 기기에서 붙인 것) — 원격에서 받는다
+    fetchImage: (abs) => {
+      const repo = repoOf(cfgRef.current.repos, abs)
+      return repo?.remote ? syncRef.current?.fetchImage(repo, abs) : Promise.resolve(false)
+    },
     // [[내부 링크]] — Obsidian 처럼 이름으로 찾는다. 지금 문서의 폴더 → 저장소 전체 (lib.rs find_note)
     openWiki: async (name, heading) => {
       if (!isTauri) { openDoc(`/demo/${name}.md`); return }
@@ -373,6 +482,13 @@ export default function App() {
   /** 트리에서 이름이 바뀌거나 옮겨지거나 지워졌을 때 — 열린 탭의 경로를 맞춘다 */
   const onPathChanged = useCallback((from, to, kind) => {
     noteOp(kind, from, to)
+    // 원격이 붙은 저장소 — 지운 것은 원격에서도 지우고, 옮긴 것은 옛 자리를 지우고 새 자리로 올린다
+    // (옮길 때는 받아 둔 것만 — 받지 않은 ☁ 문서는 로컬에 없어 함께 옮겨지지 않았다)
+    const repo = repoOf(cfgRef.current.repos, from)
+    if (repo?.remote) {
+      syncRef.current?.removed(repo, from, { cachedOnly: to !== null })
+      if (to) syncRef.current?.saved(repo, to)
+    }
     setTabs((ts) => {
       let touched = false
       const next = []
@@ -404,6 +520,20 @@ export default function App() {
     }, every * 1000)
     return () => clearInterval(t)
   }, [settings.autoSaveSec, flushOps, persistAll])
+
+  // 창을 닫을 때(X · Alt+F4 · `taskkill` (/F 없이)) 고친 것을 먼저 저장한다 —
+  // 빌드한 자리에서 띄운 것을 끄고 다시 띄워도 쓰던 글이 남게. /F 로 죽이면 이것도 못 돈다
+  useEffect(() => {
+    if (!isTauri) return
+    let off = null
+    let dead = false
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) =>
+      getCurrentWindow().onCloseRequested(async () => {
+        try { await persistAll() } catch (e) { note(`닫기 전 저장 실패: ${e}`) }
+        await flushConfig()
+      })).then((u) => { if (dead) u(); else off = u })
+    return () => { dead = true; off?.() }
+  }, [persistAll])
 
   useEffect(() => {
     const onKey = (e) => {
@@ -448,6 +578,7 @@ export default function App() {
           <span>저장소</span>
           <span className="spacer" />
           <button onClick={addRepo} title="폴더 추가">+ 추가</button>
+          <button onClick={() => setRemoteDlg({ mode: 'clone' })} title="원격(WebDAV)에서 가져오기 — git clone 처럼">☁ 가져오기</button>
         </div>
         <SearchPanel repos={repos} activePath={activePath} onOpen={openFromSide}
                      height={Number(settings.searchHeight) || SEARCH_HEIGHT}
@@ -460,7 +591,10 @@ export default function App() {
                           onOpen={openFromSide} onRemove={removeRepo}
                           onPathChanged={onPathChanged}
                           editorPath={settings.editorPath}
-                          setEditorPath={(p) => update({ editorPath: p })} />
+                          setEditorPath={(p) => update({ editorPath: p })}
+                          sync={sync.state[r.id]}
+                          onSync={() => sync.run(r).catch(() => {})}
+                          onRemote={() => setRemoteDlg({ mode: 'connect', repo: r })} />
               ))}
         </div>
       </aside>
@@ -489,6 +623,12 @@ export default function App() {
           </button>
           <button className="desk-only" onClick={newDoc} title="새 문서 (Ctrl+N)">새로</button>
           <button className="desk-only" onClick={openAny} title="아무 파일이나 열기 (Ctrl+O)">열기</button>
+          {/* 원격이 붙은 저장소가 있을 때만 — 누르면 전체 점검 (useSync.js) */}
+          <button className={`sync-btn${syncBusy ? ' busy' : ''}`} disabled={!hasRemote || syncBusy}
+                  onClick={() => sync.syncAll(true)}
+                  title={hasRemote ? `동기화 — 전체 점검\n${syncSummary}` : '원격(WebDAV)이 붙은 저장소가 없습니다'}>
+            <span className="sync-ico">⟳</span> 동기화
+          </button>
           <button onClick={saveNow} title="Ctrl+S · 다른 이름은 Ctrl+Shift+S">저장</button>
           <button onClick={() => setShowSettings((v) => !v)} title="설정">⚙</button>
         </div>
@@ -517,6 +657,12 @@ export default function App() {
             </div>
           )}
       </main>
+
+      {remoteDlg && (
+        <RemoteDialog mode={remoteDlg.mode} repo={remoteDlg.repo}
+                      onOk={onRemoteOk} onCancel={() => setRemoteDlg(null)}
+                      onUnlink={remoteDlg.mode === 'connect' ? onRemoteUnlink : null} />
+      )}
 
       {conflicts[0] && (
         <ReloadDialog path={conflicts[0].path} mine={conflicts[0].mine} theirs={conflicts[0].text}

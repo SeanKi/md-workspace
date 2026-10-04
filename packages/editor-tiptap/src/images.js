@@ -31,12 +31,45 @@ function toBase64(bytes) {
 /** `./.image/` · `.image\` → `.image`. 앞의 점은 살린다 */
 const cleanDir = (v) => String(v ?? IMAGE_DIR).trim().replace(/^\.[\\/]+/, '').replace(/[\\/]+$/, '')
 
+/** 이보다 크면 줄인다 (바이트) — 화면 캡처 대부분은 이 아래라 그대로 남는다 */
+const SHRINK_OVER = 1_000_000
+const DEFAULT_MAX_SIDE = 2560
+
+/**
+ * 큰 그림은 줄여서 넣는다 — 폰으로 찍은 사진을 붙이면 클립보드가 PNG 로 바꿔 주어 20MB 가 넘는다.
+ * 그대로 두면 동기화가 오래 걸리고(실제로 22MB 가 시간 초과로 밀렸다) 폰에서 그리는 것도 무겁다.
+ *
+ *   - 1MB 넘거나 긴 변이 maxSide 넘으면 → 긴 변 maxSide 로 줄여 **WebP 85%**
+ *   - 줄인 것이 오히려 크면 원래 것을 쓴다 (단색 도식 같은 PNG)
+ *   - SVG · GIF(움직임) 는 손대지 않는다
+ * WebP 는 VS Code · Obsidian · GitHub · 브라우저가 모두 그린다.
+ */
+export async function shrinkImage(file, { maxSide = DEFAULT_MAX_SIDE, quality = 0.85 } = {}) {
+  if (!/^image\/(png|jpeg|webp|bmp|avif)$/i.test(file.type || '')) return file
+  let bmp
+  try { bmp = await createImageBitmap(file) } catch { return file }
+  const long = Math.max(bmp.width, bmp.height)
+  if (file.size <= SHRINK_OVER && long <= maxSide) { bmp.close?.(); return file }
+  const k = Math.min(1, maxSide / long)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bmp.width * k)
+  canvas.height = Math.round(bmp.height * k)
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height)
+  bmp.close?.()
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/webp', quality))
+  if (!blob || blob.size >= file.size) return file
+  note(`그림 줄임 ${Math.round(file.size / 1024)}KB → ${Math.round(blob.size / 1024)}KB (${canvas.width}×${canvas.height})`)
+  return new File([blob], (file.name || 'image').replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' })
+}
+
 /** 이미지 파일을 문서 옆에 저장하고 마크다운에 적을 상대 경로를 돌려준다 */
 export async function saveImage(file, ctx) {
   // 브라우저에서는 파일을 쓸 수 없다 — 이 세션 동안만 보이는 주소로
   if (!isTauri) return URL.createObjectURL(file)
   const docPath = ctx?.path ?? await ctx?.ensureSaved?.()
   if (!docPath) throw new Error('먼저 문서를 저장한 뒤 이미지를 넣어 주세요.')
+  // 설정에서 끌 수 있다 (imageShrink = false)
+  if (ctx.imageShrink !== false) file = await shrinkImage(file, { maxSide: Number(ctx.imageMaxSide) || DEFAULT_MAX_SIDE })
   let ext = extOf(file.name || '')
   if (!ext || ext.length > 5) ext = (file.type || '').split('/')[1] || 'png'
   const sub = cleanDir(ctx.imageDir)
@@ -46,7 +79,18 @@ export async function saveImage(file, ctx) {
   return rel
 }
 
-export const showImage = (src, ctx) => previewImage(src, ctx ?? {})
+/**
+ * 화면에 그릴 주소. 원격이 붙은 저장소에서는 그림이 캐시에 아직 없을 수 있다 —
+ * 그때는 앱이 원격에서 받아 오게 하고(`ctx.fetchImage`) 그 다음에 그린다
+ */
+export async function showImage(src, ctx) {
+  ctx = ctx ?? {}
+  if (isTauri && ctx.fetchImage && ctx.path && src && !/^(https?:|data:|blob:)/i.test(src)) {
+    const abs = /^([a-zA-Z]:[\\/]|[\\/])/.test(src) ? src : `${dirOf(ctx.path)}/${src}`
+    if (!(await invoke('stat_file', { path: abs }).catch(() => null))) await ctx.fetchImage(abs)
+  }
+  return previewImage(src, ctx)
+}
 
 async function insertImages(view, files, ctx) {
   for (const f of files) {
@@ -98,19 +142,38 @@ export function pickImages(view, ctx) {
 }
 
 /** 이미지 노드 뷰 — 화면에만 data URI 를 쓰고 노드의 src 는 그대로 둔다 */
+/** 그림을 못 그렸을 때 다시 해 보는 간격(ms) — 다른 기기가 아직 올리는 중일 수 있다 */
+const RETRY_MS = [5_000, 15_000, 30_000, 60_000, 120_000]
+
 export const imageView = (getCtx) => () => ({ node }) => {
   const img = document.createElement('img')
   let src = null
+  let timer = 0
+  let tries = 0
+  const load = () => {
+    const want = src
+    showImage(want, getCtx()).then((url) => {
+      if (want !== src) return
+      img.src = url
+      // 원격에서 아직 못 받았으면(그쪽이 올리는 중이거나 연결이 끊겼다) 조금 뒤 다시 —
+      // 열어 둔 문서의 그림이 받아지는 대로 저절로 나타나게
+      const local = /^(data:|blob:|https?:)/i.test(url ?? '')
+      if (!local && tries < RETRY_MS.length) timer = setTimeout(load, RETRY_MS[tries++])
+    })
+  }
   const set = (n) => {
     img.alt = n.attrs.alt ?? ''
     img.title = n.attrs.title ?? n.attrs.src ?? ''
     if (n.attrs.src === src) return
     src = n.attrs.src
-    showImage(src, getCtx()).then((url) => { if (src === n.attrs.src) img.src = url })
+    clearTimeout(timer)
+    tries = 0
+    load()
   }
   set(node)
   return {
     dom: img,
     update: (n) => (n.type.name === 'image' ? (set(n), true) : false),
+    destroy: () => clearTimeout(timer),
   }
 }

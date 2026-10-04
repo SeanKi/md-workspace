@@ -16,13 +16,35 @@ export function repoOf(repos, filePath) {
 }
 
 /**
- * 폴더 한 단계를 읽는다. 저장소 종류가 늘어나면 여기서 갈라진다.
- * (kind: 'local' | 'webdav' | 'ftp' | ...)
+ * 폴더 한 단계를 읽는다.
+ *
+ * 원격이 붙은 저장소는 로컬 폴더가 **캐시**다 — 받지 않은 문서는 로컬에 없다. 그래서 원격의
+ * 문서 목록(catalog, 동기화가 준다)에서 이 폴더 아래의 것을 찾아 ☁ 로 섞는다 (`remote: true`).
+ * 누르면 그때 받는다 (App 의 openDoc).
  */
-export async function listDir(repo, path) {
+export async function listDir(repo, path, catalog = null) {
   if (repo.kind !== 'local') throw new Error(`아직 지원하지 않는 저장소 종류: ${repo.kind}`)
-  if (!isTauri) return DEMO[path] ?? []
-  return invoke('read_dir', { path })
+  // 원격에만 있는 폴더(☁)는 로컬에 아직 없다 — 그때는 원격 목록만으로 그린다
+  const local = isTauri
+    ? await invoke('read_dir', { path }).catch((e) => { if (catalog?.length) return []; throw e })
+    : (DEMO[path] ?? [])
+  if (!catalog?.length) return local
+
+  const root = repo.path.replace(/\\/g, '/').replace(/\/+$/, '')
+  const here = path.replace(/\\/g, '/').replace(/\/+$/, '')
+  const prefix = here.length > root.length ? here.slice(root.length + 1) + '/' : ''
+  const have = new Set(local.map((e) => e.name.toLowerCase()))
+  const extra = new Map()
+  for (const c of catalog) {
+    if (c.cached || !c.path.startsWith(prefix)) continue
+    const rest = c.path.slice(prefix.length)
+    const slash = rest.indexOf('/')
+    const name = slash < 0 ? rest : rest.slice(0, slash)
+    if (!name || have.has(name.toLowerCase()) || extra.has(name.toLowerCase())) continue
+    extra.set(name.toLowerCase(), { name, path: `${here}/${name}`, is_dir: slash >= 0, remote: true })
+  }
+  return [...local, ...extra.values()].sort((a, b) =>
+    (b.is_dir - a.is_dir) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
 }
 
 // 브라우저에서 UI 를 확인하기 위한 더미 트리

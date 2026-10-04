@@ -6,20 +6,23 @@ import TreeNode from './TreeNode.jsx'
 import GitLine from './GitLine.jsx'
 import TreeMenu from './TreeMenu.jsx'
 import NameDialog from './NameDialog.jsx'
+import RemoteLine from './sync/RemoteLine.jsx'
 
-export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, onPathChanged, editorPath, setEditorPath }) {
+export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, onPathChanged, editorPath, setEditorPath, sync, onSync, onRemote }) {
+  // 원격이 붙은 저장소는 로컬이 캐시다 — 받지 않은 문서는 원격 목록(catalog)으로 ☁ 를 그린다
+  const catalog = repo.remote ? (sync?.catalog ?? null) : null
   const [open, setOpen] = useState(true)
   const [roots, setRoots] = useState(null)
   const [error, setError] = useState(null)
-  const ops = useTreeOps({ onOpen, onPathChanged, editorPath, setEditorPath })
+  const ops = useTreeOps({ onOpen, onPathChanged, editorPath, setEditorPath, remote: !!repo.remote })
   const drag = useTreeDrag({ onDrop: ops.move })
   const rootVer = ops.versions[repo.path] ?? 0
 
   const loadRoots = useCallback(() => {
-    listDir(repo, repo.path)
+    listDir(repo, repo.path, catalog)
       .then((r) => { setRoots(r); setError(null) })
       .catch((e) => { setError(String(e)); setRoots([]) })
-  }, [repo])
+  }, [repo, catalog])
 
   useEffect(() => { if (open) loadRoots() }, [open, rootVer, loadRoots])
 
@@ -40,6 +43,7 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, 
       </div>
       <div className="repo-path" title={repo.path}>{repo.path}</div>
       <GitLine repo={repo} tick={gitTick} />
+      <RemoteLine repo={repo} st={sync} onSync={onSync} onSetup={onRemote} />
       {ops.notice && <div className={'node ' + (ops.notice.ok ? 'ok' : 'err')}>{ops.notice.text}</div>}
       {open && (
         error ? <div className="node err">{error}</div>
@@ -47,7 +51,7 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, gitTick, 
         : roots.length === 0 ? <div className="node muted">(비어 있음) — 오른쪽 버튼으로 새 노트</div>
         : roots.map((e) => (
             <TreeNode key={e.path} repo={repo} entry={e} depth={0}
-                      activePath={activePath} onOpen={onOpen} ops={ops} drag={drag} />
+                      activePath={activePath} onOpen={onOpen} ops={ops} drag={drag} catalog={catalog} />
           ))
       )}
 

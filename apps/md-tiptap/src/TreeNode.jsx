@@ -11,16 +11,19 @@ const under = (path, dir) =>
  * 줄마다 포커스를 받을 수 있어야 F2 로 이름을 바꿀 수 있고,
  * 폴더 줄에는 `data-drop` 을 달아 놓아야 끌어다 놓을 자리로 찾힌다.
  */
-export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, drag }) {
+export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, drag, catalog }) {
   const [open, setOpen] = useState(false)
   const [kids, setKids] = useState(null)
   const [error, setError] = useState(null)
   const ver = ops.versions[entry.path] ?? 0
 
   const load = useCallback(async () => {
-    try { setKids(await listDir(repo, entry.path)); setError(null) }
+    try { setKids(await listDir(repo, entry.path, catalog)); setError(null) }
     catch (e) { setError(String(e)); setKids([]) }
-  }, [repo, entry.path])
+  }, [repo, entry.path, catalog])
+
+  // 원격 목록이 바뀌면(맞추고 나면) 펼쳐 둔 폴더는 다시 그린다 — ☁ 가 받은 것으로 바뀐다
+  useEffect(() => { if (open && kids !== null) load() }, [catalog])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = useCallback(async () => {
     const next = !open
@@ -73,9 +76,10 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
     tabIndex: 0,
     title: entry.path,
     onContextMenu: (e) => ops.openMenu(e, entry),
-    onPointerDown: (e) => drag.press(e, entry),
+    // 받지 않은 ☁ 것은 옮기거나 이름을 바꿀 수 없다 — 먼저 열어서 받는다
+    onPointerDown: (e) => { if (!entry.remote) drag.press(e, entry) },
     onKeyDown: (e) => {
-      if (e.key === 'F2') { e.preventDefault(); ops.startRename(entry) }
+      if (e.key === 'F2' && !entry.remote) { e.preventDefault(); ops.startRename(entry) }
     },
   }
 
@@ -86,10 +90,10 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
     return (
       <div
         {...common}
-        className={'node file' + on + mark}
+        className={'node file' + on + mark + (entry.remote ? ' remote' : '')}
         onClick={() => { if (!drag.consumeClick()) onOpen(entry.path) }}
       >
-        <span className="ico">📄</span>{entry.name}
+        <span className="ico">{entry.remote ? '☁' : '📄'}</span>{entry.name}
       </div>
     )
   }
@@ -98,12 +102,12 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
     <>
       <div
         {...common}
-        className={'node dir' + mark}
+        className={'node dir' + mark + (entry.remote ? ' remote' : '')}
         data-drop={entry.path}
         onClick={() => { if (!drag.consumeClick()) toggle() }}
       >
         <span className="caret">{open ? '▾' : '▸'}</span>
-        <span className="ico">{open ? '📂' : '📁'}</span>{entry.name}
+        <span className="ico">{entry.remote ? '☁' : open ? '📂' : '📁'}</span>{entry.name}
       </div>
       {open && (
         kids === null
@@ -114,7 +118,7 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
               ? <div className="node muted" style={sub}>(비어 있음)</div>
               : kids.map((k) => (
                   <TreeNode key={k.path} repo={repo} entry={k} depth={depth + 1}
-                            activePath={activePath} onOpen={onOpen} ops={ops} drag={drag} />
+                            activePath={activePath} onOpen={onOpen} ops={ops} drag={drag} catalog={catalog} />
                 ))
       )}
     </>

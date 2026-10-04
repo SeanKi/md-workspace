@@ -85,6 +85,12 @@ pub fn run() {
         return;
     }
 
+    // 설정·기록을 다른 폴더에 (cli.rs home_dir). 창을 만들기 전에 정해야 처음 읽는 설정부터 그곳 것이다
+    if let Some(home) = cli::home_dir() {
+        md_core::diag::set_home(home.clone());
+        config::set_dir(home);
+    }
+
     let builder = tauri::Builder::default();
 
     // 이미 떠 있으면 새 창을 띄우지 않고 그 창의 탭으로 연다. MD Notepad 는 탐색기에서
@@ -110,6 +116,8 @@ pub fn run() {
             {
                 use tauri::Manager;
                 if let Ok(dir) = _app.path().app_data_dir() {
+                    // 동기화 비밀번호도 앱만 읽는 이 폴더에 (Windows 는 자격 증명 관리자 — cred.rs)
+                    md_core::cred::set_store_dir(dir.clone());
                     config::set_dir(dir);
                 }
             }
@@ -145,6 +153,17 @@ pub fn run() {
             md_core::diag::log_write,
             md_core::diag::log_dir,
             md_core::diag::log_tail,
+            // 동기화 (packages/sync-core) — WebDAV 는 CORS 때문에 Rust 를 거친다
+            md_core::dav::dav_request,
+            md_core::cred::cred_set,
+            md_core::cred::cred_has,
+            md_core::cred::cred_delete,
+            md_core::sync_fs::list_md,
+            md_core::sync_fs::stat_file,
+            md_core::sync_fs::list_assets,
+            md_core::sync_fs::asset_users,
+            md_core::sync_fs::asset_to_trash,
+            md_core::sync_fs::asset_restore,
             app_repo_dir,
             find_note,
         ])

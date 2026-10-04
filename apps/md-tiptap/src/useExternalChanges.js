@@ -94,5 +94,5 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, setActiveId
     }
   }, [conflicts, tabsRef, setTabs, reloadTab, say, liveOf])
 
-  return { conflicts, resolveConflict }
+  return { conflicts, resolveConflict, externalChanged: onExternalChange }
 }

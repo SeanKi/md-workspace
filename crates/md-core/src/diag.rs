@@ -16,12 +16,22 @@ const KEEP_DAYS: u64 = 14;
 /// 한 파일이 이보다 커지면 더 쓰지 않는다 (무한 반복에 로그가 폭주하는 것을 막는다)
 const MAX_BYTES: u64 = 4 * 1024 * 1024;
 
+static HOME: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// 기록을 쌓을 폴더의 부모를 정한다 (`--home`). 정하지 않으면 실행 파일 옆이다
+pub fn set_home(dir: PathBuf) {
+    let _ = HOME.set(dir);
+}
+
 fn dir() -> Result<PathBuf, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("실행 파일 자리를 알 수 없습니다: {e}"))?;
-    let d = exe
-        .parent()
-        .ok_or("실행 파일의 상위 폴더가 없습니다")?
-        .join(DIR);
+    let base = match HOME.get() {
+        Some(h) => h.clone(),
+        None => {
+            let exe = std::env::current_exe().map_err(|e| format!("실행 파일 자리를 알 수 없습니다: {e}"))?;
+            exe.parent().ok_or("실행 파일의 상위 폴더가 없습니다")?.to_path_buf()
+        }
+    };
+    let d = base.join(DIR);
     if !d.exists() {
         std::fs::create_dir_all(&d).map_err(|e| format!("{} 를 만들지 못했습니다: {e}", d.display()))?;
         hide(&d);

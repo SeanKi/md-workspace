@@ -67,7 +67,7 @@ fn is_markdown(p: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn collect(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+pub(crate) fn collect(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();

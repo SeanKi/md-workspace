@@ -35,3 +35,18 @@ pub fn early_exit_command() -> Option<&'static str> {
     }
     None
 }
+
+/// `--home <폴더>` — 설정(`MDTiptap.ini`)과 기록(`.mdlog`)을 실행 파일 옆 대신 이 폴더에 둔다.
+/// 빌드한 자리의 실행 파일을 그대로 띄우면서 쓰던 설정은 배포 폴더의 것을 쓰려고 (run-dev.bat)
+pub fn home_dir() -> Option<std::path::PathBuf> {
+    let mut args = std::env::args().skip(1);
+    while let Some(a) = args.next() {
+        if a == "--home" {
+            return args.next().map(std::path::PathBuf::from);
+        }
+        if let Some(v) = a.strip_prefix("--home=") {
+            return Some(std::path::PathBuf::from(v));
+        }
+    }
+    None
+}

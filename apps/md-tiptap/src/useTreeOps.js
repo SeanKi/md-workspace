@@ -15,7 +15,7 @@ import { copyText, openInMdEditor, pickMdNotepad } from './shell.js'
  * @param onPathChanged (옛경로, 새경로|null, 종류) — 열려 있는 문서가 영향을 받을 때와
  *        저장소에 커밋으로 남길 일이 생겼을 때 알린다. 종류는 rename · move · delete.
  */
-export default function useTreeOps({ onOpen, onPathChanged, editorPath, setEditorPath }) {
+export default function useTreeOps({ onOpen, onPathChanged, editorPath, setEditorPath, remote = false }) {
   const [versions, setVersions] = useState({})
   const [menu, setMenu] = useState(null)      // { x, y, target }
   const [dialog, setDialog] = useState(null)  // { kind, parent|target, value }
@@ -41,17 +41,22 @@ export default function useTreeOps({ onOpen, onPathChanged, editorPath, setEdito
   const closeMenu = useCallback(() => setMenu(null), [])
 
   const remove = useCallback(async (t) => {
-    const q = `"${t.name}" 을(를) 휴지통으로 보낼까요?`
+    // 원격이 붙은 저장소에서 지우면 다른 기기에서도 지워진다 — 그 말을 해 둔다
+    const q = remote
+      ? `"${t.name}" 을(를) 지울까요?
+원격과 다른 기기에서도 지워집니다. (원격의 이력에는 남습니다)`
+      : `"${t.name}" 을(를) 휴지통으로 보낼까요?`
     const ok = isTauri
       ? await confirm(q, { title: '삭제', kind: 'warning' })
       : window.confirm(q)
     if (!ok) return
     try {
-      await deletePath(t.path)
+      // 받지 않은 ☁ 문서는 로컬에 없다 — 원격에서만 지운다 (onPathChanged → 동기화)
+      if (!t.remote) await deletePath(t.path)
       refresh(dirOf(t.path))
       onPathChanged?.(t.path, null, 'delete')
     } catch (e) { fail(e) }
-  }, [refresh, onPathChanged, fail])
+  }, [refresh, onPathChanged, fail, remote])
 
   const startRename = useCallback((t) => {
     if (!t || t.isRoot) return
@@ -120,6 +125,14 @@ export default function useTreeOps({ onOpen, onPathChanged, editorPath, setEdito
   /** 지금 누른 자리에서 할 수 있는 것들 */
   const menuItems = useCallback((t) => {
     const items = []
+    // 받지 않은 ☁ 것 — 열면 받는다. 이름 바꾸기·옮기기는 받은 뒤에
+    if (t.remote) {
+      if (!t.is_dir) items.push({ label: '받아서 열기', run: () => onOpen(t.path) })
+      items.push({ label: '경로 복사', run: () => copyPath(t) })
+      items.push({ sep: true })
+      items.push({ label: '삭제 (원격에서)', danger: true, run: () => remove(t) })
+      return items
+    }
     if (t.is_dir) {
       items.push({ label: '새 노트', run: () => setDialog({ kind: 'note', parent: t.path, value: '' }) })
       items.push({ label: '새 폴더', run: () => setDialog({ kind: 'dir', parent: t.path, value: '' }) })
@@ -135,7 +148,7 @@ export default function useTreeOps({ onOpen, onPathChanged, editorPath, setEdito
       items.push({ label: '삭제 (휴지통으로)', danger: true, run: () => remove(t) })
     }
     return items
-  }, [remove, startRename, openElsewhere, copyPath])
+  }, [remove, startRename, openElsewhere, copyPath, onOpen])
 
   const dialogTitle = dialog && (
     dialog.kind === 'note' ? '새 노트'

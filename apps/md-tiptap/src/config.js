@@ -38,6 +38,8 @@ function pack(settings, repos, recent) {
   for (const [k, v] of Object.entries(settings)) data.settings[k] = toIni(v)
   repos.forEach((r, i) => {
     data[`repo.${i + 1}`] = { name: r.name, path: r.path, kind: r.kind ?? 'local' }
+    // 원격(WebDAV) — 주소와 사용자 이름만. 비밀번호는 여기 쓰지 않는다 (Windows 자격 증명 관리자)
+    if (r.remote) Object.assign(data[`repo.${i + 1}`], { remote: r.remote, user: r.user ?? '' })
   })
   if (recent?.length) {
     data.recent = {}
@@ -58,6 +60,7 @@ function unpack(data, defaults) {
     .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
     .map((s, i) => ({
       id: `r${i + 1}`, name: data[s].name || '', kind: data[s].kind || 'local', path: data[s].path || '',
+      ...(data[s].remote ? { remote: data[s].remote, user: data[s].user || '' } : {}),
     }))
     .filter((r) => r.path)
   const recent = Object.entries(data.recent ?? {})
@@ -136,10 +139,10 @@ export function saveConfig(settings, repos, recent = []) {
 
 export function flushConfig() {
   clearTimeout(timer)
-  if (!pending) return
+  if (!pending) return Promise.resolve()
   const { settings, repos, recent } = pending
   pending = null
-  saveConfigNow(settings, repos, recent).catch((e) => onError?.(String(e)))
+  return saveConfigNow(settings, repos, recent).catch((e) => onError?.(String(e)))
 }
 
 if (typeof window !== 'undefined') window.addEventListener('beforeunload', flushConfig)
