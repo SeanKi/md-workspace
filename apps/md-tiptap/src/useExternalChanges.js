@@ -14,6 +14,10 @@ import { baseName } from './repos.js'
  * 다시 읽을 때는 탭 id 를 바꿔 편집기를 다시 만든다. 한 편집기에 새 내용을 밀어 넣으면
  * 되돌리기 이력이 엉킨다 (CLAUDE.md "문서 전환은 key= 로")
  */
+/** 줄 끝(CRLF/LF)과 끝의 빈 줄은 견주지 않는다 — 보이는 내용이 같으면 같다 */
+const norm = (s) => String(s ?? '').replace(/\r\n?/g, '\n').replace(/\s+$/, '')
+const same = (a, b) => norm(a) === norm(b)
+
 export default function useExternalChanges({ tabs, tabsRef, setTabs, setActiveId, activeIdRef, say, liveOf, liveRef }) {
   const [conflicts, setConflicts] = useState([])
 
@@ -36,7 +40,6 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, setActiveId
   const onExternalChange = useCallback(async (path) => {
     const t = tabsRef.current.find((x) => samePath(x.path, path))
     if (!t) return
-    if (!t.dirty) { reloadTab(t.path); return }
     let text = ''
     try {
       text = await invoke('read_file', { path: t.path })
@@ -44,8 +47,16 @@ export default function useExternalChanges({ tabs, tabsRef, setTabs, setActiveId
       say(`파일을 읽을 수 없습니다: ${e}`)
       return
     }
+    // 바뀌었다는 알림이 와도 **내용이 지금 편집기와 같으면 묻지 않는다.** 동기화가 같은 내용으로 다시 쓰거나,
+    // 다른 창(단순 모드)이 같은 문서를 같은 내용으로 저장하면 알림만 온다 — "바깥 적용 / 현재 적용" 을 물었는데
+    // 비교 창에는 차이가 없던 것이 이것이다. 고친 것(●)이 있었어도 디스크와 같으니 저장할 것이 없다
+    if (same(text, liveOf(t))) {
+      if (t.dirty) setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, dirty: false } : x)))
+      return
+    }
+    if (!t.dirty) { reloadTab(t.path, text); return }
     setConflicts((c) => (c.some((x) => samePath(x.path, t.path)) ? c : [...c, { path: t.path, text, mine: liveOf(t) }]))
-  }, [tabsRef, reloadTab, say, liveOf])
+  }, [tabsRef, reloadTab, say, liveOf, setTabs])
 
   // 이벤트 구독은 한 번만
   const cb = useRef(onExternalChange)
