@@ -11,8 +11,9 @@ const under = (path, dir) =>
  * 줄마다 포커스를 받을 수 있어야 F2 로 이름을 바꿀 수 있고,
  * 폴더 줄에는 `data-drop` 을 달아 놓아야 끌어다 놓을 자리로 찾힌다.
  */
-export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, drag, catalog }) {
-  const [open, setOpen] = useState(false)
+export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, drag, catalog, exp }) {
+  // 지난번에 펼쳐 둔 폴더는 펼친 채로 뜬다 (RepoTree 의 exp — 환경 파일)
+  const [open, setOpen] = useState(() => !!(entry.is_dir && exp?.has(entry.path)))
   const [kids, setKids] = useState(null)
   const [error, setError] = useState(null)
   const ver = ops.versions[entry.path] ?? 0
@@ -25,11 +26,16 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
   // 원격 목록이 바뀌면(맞추고 나면) 펼쳐 둔 폴더는 다시 그린다 — ☁ 가 받은 것으로 바뀐다
   useEffect(() => { if (open && kids !== null) load() }, [catalog])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 처음부터 펼쳐진 채로 떴으면 안을 읽는다
+  useEffect(() => { if (open && kids === null) load() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 사용자가 직접 펼치고 접은 것만 적는다 — 열린 문서를 보여 주려고 저절로 펼친 것은 적지 않는다
   const toggle = useCallback(async () => {
     const next = !open
     setOpen(next)
+    exp?.set(entry.path, next)
     if (next && kids === null) await load()
-  }, [open, kids, load])
+  }, [open, kids, load, exp, entry.path])
 
   // 이 폴더 안에서 뭔가 만들거나 지웠으면 다시 읽는다. 만든 것이 보이도록 펼친다
   useEffect(() => {
@@ -117,7 +123,7 @@ export default function TreeNode({ repo, entry, depth, activePath, onOpen, ops, 
             : kids.length === 0
               ? <div className="node muted" style={sub}>(비어 있음)</div>
               : kids.map((k) => (
-                  <TreeNode key={k.path} repo={repo} entry={k} depth={depth + 1}
+                  <TreeNode key={k.path} repo={repo} entry={k} depth={depth + 1} exp={exp}
                             activePath={activePath} onOpen={onOpen} ops={ops} drag={drag} catalog={catalog} />
                 ))
       )}

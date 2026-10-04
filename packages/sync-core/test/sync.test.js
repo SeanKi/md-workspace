@@ -272,3 +272,49 @@ test('전체 점검(full) — 맞는 것은 그대로, 원격에서 사라진 �
   assert.equal((await A.sync({ full: true })).assetsUp, 1)
   assert.ok(w.server.files.get('notes/.image/p.png'))
 })
+
+test('그림 하나가 실패해도 나머지는 올리고 문서 기록도 남는다 — 다음 번에 실패한 것만', async () => {
+  const w = world()
+  const A = w.dev('A', { 'a.md': '# A\n\n![](.image/1.png) ![](.image/2.png) ![](.image/3.png)\n' })
+  for (const n of [1, 2, 3]) A.fs.paste(`/r/.image/${n}.png`, 'iVBORw0KGgo=')
+  const good = w.server.client()
+  const flaky = { ...good, putBinary: (rel, ...rest) => (rel.endsWith('2.png') ? Promise.reject(new Error('올리기 실패: 서버 응답 500')) : good.putBinary(rel, ...rest)) }
+  const r1 = await A.sync({ store: flaky })
+  assert.equal(r1.assetsUp, 2)
+  assert.equal(r1.failed.length, 1)
+  assert.match(r1.failed[0], /2\.png/)
+  assert.ok(w.server.files.get('notes/.mdsync/devices/A/index.json'))   // 문서 기록은 남았다
+  const r2 = await A.sync()
+  assert.deepEqual([r2.assetsUp, r2.failed.length, r2.pushed], [1, 0, 0])
+})
+
+test('도장 — 아무것도 안 바뀌었으면 원격에 한 번만 묻고 끝, 바뀌면 제대로 본다', async () => {
+  const w = world()
+  const A = w.dev('A', { 'a.md': DOC })
+  const B = w.dev('B')
+  await A.sync(); await B.fetchAll(); await A.sync(); await B.sync()
+  assert.ok(w.server.files.get('notes/.mdsync-stamp'))
+
+  // 원격 요청을 센다
+  let calls = 0
+  const counted = (c) => Object.fromEntries(Object.entries(c).map(([k, f]) => [k, typeof f === 'function' ? (...a) => { calls++; return f(...a) } : f]))
+  const quiet = await A.sync({ store: counted(w.server.client()) })
+  assert.equal(quiet.fast, true)
+  assert.equal(calls, 1)
+
+  // B 가 고치면 A 는 빠른 길을 타지 않고 받아 온다
+  B.edit('a.md', DOC + '\nB 가 더함.\n'); await B.sync()
+  const r = await A.sync()
+  assert.ok(!r.fast)
+  assert.equal(r.pulled, 1)
+  assert.match(A.read('a.md'), /B 가 더함/)
+
+  // 로컬에서 고쳐도 빠른 길을 타지 않는다
+  assert.equal((await A.sync()).fast, true)
+  A.edit('a.md', A.read('a.md') + '\nA 가 더함.\n')
+  const r2 = await A.sync()
+  assert.ok(!r2.fast)
+  assert.equal(r2.pushed, 1)
+  // 전체 점검은 도장을 믿지 않는다
+  assert.ok(!(await A.sync({ full: true })).fast)
+})

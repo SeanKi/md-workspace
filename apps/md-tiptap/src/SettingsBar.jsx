@@ -1,22 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { normalizeImageDir, logDir } from './core.js'
-import { mdNotepadPath, pickMdNotepad } from './shell.js'
 import { SavePdf, WinAssoc } from './PdfAndAssoc.jsx'
 
 /** 예전 설정(켜고 끄기)도 받는다 — 켜 둔 것은 기본값(원격만)으로 */
 export const shrinkMode = (v) => (v === false || v === 'false' || v === 'never' ? 'never' : v === 'always' ? 'always' : 'remote')
 
 /** 톱니바퀴를 눌렀을 때 나오는 설정 줄. */
-export default function SettingsBar({ settings, onChange, opsFallbackSec, configPath, docPath }) {
+export default function SettingsBar({ settings, onChange, opsFallbackSec, configPath, docPath, simple }) {
   // 화면이 멎었을 때 볼 기록이 어디에 쌓이는지 알려 준다 (평소엔 볼 일이 없다)
   const [logPath, setLogPath] = useState('')
   useEffect(() => { logDir().then(setLogPath).catch(() => {}) }, [])
-
-  // 트리에서 "MD Notepad 로 열기" 가 실제로 어느 것을 쓰는지 보여 준다.
-  // 못 찾으면 여기서 한 번 골라 두면 된다
-  const [found, setFound] = useState('')
-  useEffect(() => { mdNotepadPath(settings.editorPath).then(setFound).catch(() => setFound('')) },
-    [settings.editorPath])
 
   return (
     <div className="settings">
@@ -43,11 +36,12 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
                value={settings.autoSaveSec}
                onChange={(e) => onChange({ autoSaveSec: Number(e.target.value) })} />
       </label>
-      <label className="check">
+      {/* 단순 모드에는 저장소가 없다 — git · 동기화 설정은 숨긴다 */}
+      {!simple && <label className="check">
         <input type="checkbox" checked={!!settings.autoCommit}
                onChange={(e) => onChange({ autoCommit: e.target.checked })} />
         저장할 때 git commit
-      </label>
+      </label>}
       <label className="check">
         <input type="checkbox" checked={!!settings.wideLayout}
                onChange={(e) => onChange({ wideLayout: e.target.checked })} />
@@ -72,17 +66,7 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
           (앱을 닫은 뒤에).
         </span>
       )}
-      <div className="row-line">
-        <span>MD Notepad</span>
-        <code className={found ? '' : 'missing'}>{found || '찾지 못했습니다'}</code>
-        <button type="button" onClick={async () => {
-          const p = await pickMdNotepad()
-          if (p) onChange({ editorPath: p })
-        }}>찾아보기</button>
-        {settings.editorPath && (
-          <button type="button" onClick={() => onChange({ editorPath: '' })}>자동으로</button>
-        )}
-      </div>
+      {!simple && <>
       <div className="row-line">
         <span>동기화</span>
         <label>이 기기 이름
@@ -99,6 +83,7 @@ export default function SettingsBar({ settings, onChange, opsFallbackSec, config
         </label>
         <span className="hint">0 이면 끔 · 저장할 때와 ⟳ 를 누를 때는 늘 맞춘다</span>
       </div>
+      </>}
       <SavePdf docPath={docPath} />
       <WinAssoc />
       {logPath && (

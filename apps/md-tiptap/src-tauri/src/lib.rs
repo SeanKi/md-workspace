@@ -93,20 +93,25 @@ pub fn run() {
 
     let builder = tauri::Builder::default();
 
-    // 이미 떠 있으면 새 창을 띄우지 않고 그 창의 탭으로 연다. MD Notepad 는 탐색기에서
-    // 여러 파일을 열면 창이 여러 개 떴다 (README "아직 안 되는 것")
+    // 전체 모드(--sync)는 하나만 뜬다 — 이미 떠 있으면 새 창 대신 그 창의 탭으로 연다. 저장소 동기화가
+    // 두 곳에서 돌면 기록 파일을 서로 덮는다. 단순 모드(기본)는 메모장처럼 창마다 따로 뜬다 — 이 잠금을
+    // 걸지 않으므로 전체 모드 창이 떠 있어도 단순 모드 창은 새로 뜬다
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-        use tauri::{Emitter, Manager};
-        let files = cli::md_files(argv.into_iter().skip(1));
-        if !files.is_empty() {
-            let _ = app.emit("open-files", files);
-        }
-        if let Some(w) = app.get_webview_window("main") {
-            let _ = w.unminimize();
-            let _ = w.set_focus();
-        }
-    }));
+    let builder = if cli::has_sync_flag(std::env::args().skip(1)) {
+        builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            use tauri::{Emitter, Manager};
+            let files = cli::md_files(argv.into_iter().skip(1));
+            if !files.is_empty() {
+                let _ = app.emit("open-files", files);
+            }
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
+    } else {
+        builder
+    };
 
     builder
         .plugin(tauri_plugin_dialog::init())
@@ -141,12 +146,13 @@ pub fn run() {
             git::git_status,
             git::git_init,
             git::git_commit,
-            open_with::open_in_md_editor,
-            open_with::md_notepad_path,
+            open_with::open_simple,
+            open_with::open_in_explorer,
             config::config_load,
             config::config_save,
             config::config_path,
             cli::startup_file,
+            cli::startup_full,
             win_assoc::assoc_status,
             win_assoc::assoc_register,
             win_assoc::assoc_unregister,

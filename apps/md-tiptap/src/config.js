@@ -40,6 +40,9 @@ function pack(settings, repos, recent) {
     data[`repo.${i + 1}`] = { name: r.name, path: r.path, kind: r.kind ?? 'local' }
     // 원격(WebDAV) — 주소와 사용자 이름만. 비밀번호는 여기 쓰지 않는다 (Windows 자격 증명 관리자)
     if (r.remote) Object.assign(data[`repo.${i + 1}`], { remote: r.remote, user: r.user ?? '' })
+    // 트리 펼침 — 접어 둔 저장소와 펼쳐 둔 폴더(저장소 기준 경로). 경로에 못 쓰는 `|` 로 잇는다
+    if (r.open === false) data[`repo.${i + 1}`].open = 'false'
+    if (r.expanded?.length) data[`repo.${i + 1}`].expanded = r.expanded.join('|')
   })
   if (recent?.length) {
     data.recent = {}
@@ -61,6 +64,8 @@ function unpack(data, defaults) {
     .map((s, i) => ({
       id: `r${i + 1}`, name: data[s].name || '', kind: data[s].kind || 'local', path: data[s].path || '',
       ...(data[s].remote ? { remote: data[s].remote, user: data[s].user || '' } : {}),
+      open: data[s].open !== 'false',
+      expanded: (data[s].expanded || '').split('|').filter(Boolean),
     }))
     .filter((r) => r.path)
   const recent = Object.entries(data.recent ?? {})
@@ -102,11 +107,49 @@ export async function loadConfig(defaults) {
     let old = empty
     try { old = readLocal(defaults) } catch { /* 없으면 기본값 */ }
     const moved = old.repos.length > 0
-    await saveConfigNow(old.settings, old.repos, old.recent).catch(() => {})
+    // 파일이 없을 때 한 번 — 합칠 것이 없으니 통째로 쓴다
+    await invoke('config_save', { data: pack(old.settings, old.repos, old.recent) }).catch(() => {})
+    remember(old.settings, old.recent)
     return { ...old, path, note: moved ? `설정을 ${path} 로 옮겼습니다` : '' }
   }
 
-  return { ...unpack(data, defaults), path, note: '' }
+  const out = unpack(data, defaults)
+  remember(out.settings, out.recent)
+  return { ...out, path, note: '' }
+}
+
+/*
+ * 여러 창이 같은 파일을 쓴다 — 단순 모드는 창마다 따로 뜬다(lib.rs). 그래서 통째로 덮지 않고
+ * **쓰기 직전에 파일을 다시 읽어 이 창이 바꾼 것만 얹는다.** 오래 열어 둔 창이 처음 읽은 옛 값(저장소 목록 ·
+ * 패널 폭)으로 다른 창의 변경을 되돌리지 않게.
+ *   - 설정: 이 창이 읽은 뒤 바꾼 키만
+ *   - 저장소 목록: 저장소를 쓰는 창(전체 모드)만 쓴다. 단순 모드는 파일의 것을 그대로 둔다
+ *   - 최근 문서: 이 창의 목록 + 다른 창이 그새 더한 것 (이 창에서 뺀 것은 빠진 채로)
+ */
+let base = { settings: {}, recent: [] }
+let ownsRepos = false
+const remember = (settings, recent) => {
+  base = { settings: Object.fromEntries(Object.entries(settings).map(([k, v]) => [k, toIni(v)])), recent: [...recent] }
+}
+/** 이 창이 저장소 목록의 주인인가 (전체 모드). App 이 모드를 안 뒤에 알려 준다 */
+export const setOwnsRepos = (v) => { ownsRepos = !!v }
+
+function merge(disk, settings, repos, recent) {
+  const mine = pack(settings, repos, recent)
+  const out = { ...disk, settings: { ...(disk.settings ?? {}) } }
+  for (const [k, v] of Object.entries(mine.settings)) {
+    if (base.settings[k] !== v) out.settings[k] = v
+  }
+  if (ownsRepos) {
+    for (const k of Object.keys(out)) if (k.startsWith('repo.')) delete out[k]
+    for (const [k, v] of Object.entries(mine)) if (k.startsWith('repo.')) out[k] = v
+  }
+  const diskRecent = Object.entries(disk.recent ?? {}).sort((a, b) => Number(a[0]) - Number(b[0])).map(([, p]) => p)
+  const added = diskRecent.filter((p) => !base.recent.includes(p) && !recent.includes(p))
+  const all = [...recent, ...added].slice(0, 30)
+  delete out.recent
+  if (all.length) out.recent = Object.fromEntries(all.map((p, i) => [String(i + 1).padStart(3, '0'), p]))
+  return out
 }
 
 /* ---------- 쓰기 ---------- */
@@ -120,7 +163,9 @@ export async function saveConfigNow(settings, repos, recent = []) {
     } catch { /* 무시 */ }
     return
   }
-  await invoke('config_save', { data: pack(settings, repos, recent) })
+  const disk = await invoke('config_load').catch(() => ({}))
+  await invoke('config_save', { data: merge(disk, settings, repos, recent) })
+  remember(settings, recent)
 }
 
 let timer = 0

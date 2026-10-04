@@ -55,6 +55,11 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
         if (r.pulled) bits.push(`↓${r.pulled}`)
         if (r.pushed) bits.push(`↑${r.pushed}`)
         if (r.conflicts) bits.push(`충돌 ${r.conflicts}`)
+        // 몇 개가 실패해도 나머지는 맞췄다 — 실패한 것은 다음 번에 다시 (engine.js). 무엇이 왜인지는 .mdlog 에
+        if (r.failed?.length) {
+          bits.push(`${r.failed.length}개 실패 — 다음에 다시`)
+          for (const f of r.failed.slice(0, 20)) note(`동기화 일부 실패 ${repo.name}: ${f}`)
+        }
         patch(repo.id, { busy: false, at: Date.now(), catalog: r.catalog, msg: bits.join(' ') || '맞음' })
         await cb.current.afterSync?.(repo, r)
         return r

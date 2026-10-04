@@ -50,3 +50,14 @@ pub fn home_dir() -> Option<std::path::PathBuf> {
     }
     None
 }
+
+/// 기본은 메모장처럼(단순 모드) — 저장소 · 동기화 · git 이 없다. `--sync` 를 붙여 띄우면 전체 모드 (App.jsx).
+/// 폰은 명령줄이 없고 동기화가 쓰임새의 전부라 늘 전체 모드다
+#[tauri::command]
+pub fn startup_full() -> bool {
+    cfg!(mobile) || has_sync_flag(std::env::args().skip(1))
+}
+
+pub fn has_sync_flag(mut args: impl Iterator<Item = String>) -> bool {
+    args.any(|a| a == "--sync")
+}

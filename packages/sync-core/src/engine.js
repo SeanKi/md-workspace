@@ -38,6 +38,38 @@ import { merge3, firstContact } from './merge.js'
  */
 
 const STATE = '.mdsync'
+/**
+ * 원격 뿌리의 도장 파일 하나 — 어느 기기든 무엇을 올리면 새 값(아무 글자)으로 바꿔 쓴다.
+ * 보통 맞추기는 이것만 읽어 지난번에 본 값과 같고 로컬도 그대로면 거기서 끝난다 (요청 한 번).
+ * 기기 목록 · 기기마다 index.json 을 매번 받지 않는다
+ */
+const STAMP = '.mdsync-stamp'
+/** 도장이 그대로여도 이만큼 지나면 한 번은 제대로 본다 — 두 기기가 같은 순간에 도장을 써서 하나가 묻힌 경우 */
+const SLOW_EVERY_MS = 10 * 60_000
+const newStamp = (device) => `${device}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
+/**
+ * 지난번 이후 로컬에 바뀐 것이 있나 — 파일 목록(크기·시각)만 견준다. 디스크만 보므로 빠르다
+ */
+async function localChanged(fs, root, repoState) {
+  if (Object.keys(repoState.del).length) return true
+  const list = await fs.list(root)
+  const known = new Set()
+  for (const f of list) {
+    const seen = repoState.files[f.rel]
+    if (!seen || seen.size !== f.size || seen.mtime !== f.mtime) return true
+    known.add(f.rel)
+  }
+  // 캐시에서 없어진 것 — 맞출 때 기록을 정리해야 한다
+  if (Object.keys(repoState.files).some((p) => !known.has(p))) return true
+  if (fs.listAssets) {
+    for (const a of await fs.listAssets(root)) {
+      const p = repoState.assets[a.rel]
+      if (!p || p.size !== a.size || p.mtime !== a.mtime) return true
+    }
+  }
+  return false
+}
 export const docKey = (rel) => hash(rel.normalize('NFC').replace(/\\/g, '/').toLowerCase())
 const sig = (list) => (list ? list.map((b) => `${b.id}:${b.hash}`).join(',') : 'deleted')
 const sameContent = (a, b) => !!a && !!b && a.map((x) => x.hash).join() === b.map((x) => x.hash).join()
@@ -54,6 +86,16 @@ async function readJson(fs, abs) {
 }
 
 /** 몇 개씩 나란히 — 요청 하나가 수백 ms 라 하나씩 하면 처음 올릴 때 너무 오래 걸린다 */
+/** 연결이 끊긴 것(서버의 4xx·5xx 가 아닌)은 잠깐 쉬고 다시 — 큰 올리기 도중에 흔하다 */
+async function retry(fn, waits = [2000, 6000]) {
+  for (let i = 0; ; i++) {
+    try { return await fn() } catch (e) {
+      if (i >= waits.length || !/연결 실패/.test(String(e?.message ?? e))) throw e
+      await new Promise((r) => setTimeout(r, waits[i]))
+    }
+  }
+}
+
 async function pool(items, n, fn) {
   let i = 0
   const run = async () => { while (i < items.length) { const k = i++; await fn(items[k], k) } }
@@ -62,7 +104,7 @@ async function pool(items, n, fn) {
 
 const loadRepoState = async (fs, root) => {
   const s = (await readJson(fs, `${root}/${STATE}/repo.json`)) ?? {}
-  return { files: s.files ?? {}, del: s.del ?? {}, assets: s.assets ?? {} }
+  return { files: s.files ?? {}, del: s.del ?? {}, assets: s.assets ?? {}, stamp: s.stamp ?? null, slowAt: s.slowAt ?? 0, catalog: s.catalog ?? null }
 }
 
 /**
@@ -90,13 +132,25 @@ export async function markDeleted({ root, fs }, rels) {
 export async function syncRepo({ root, store, dav, fs, device, deviceName = device, author = deviceName, want = [], only = null, full = false, progress = () => {}, concurrency = 4 }) {
   store = store ?? dav
   const ctx = { root, store, fs, me: device, deviceName, author, abs: (rel) => `${root}/${rel}`, mine: `.mdsync/devices/${device}` }
-  const stat = { pulled: 0, pushed: 0, created: 0, deleted: 0, conflicts: 0, changedPaths: [], catalog: [], assetsUp: 0 }
+  const stat = { pulled: 0, pushed: 0, created: 0, deleted: 0, conflicts: 0, changedPaths: [], catalog: [], assetsUp: 0, failed: [] }
 
   // git 이 이 폴더를 커밋하지 않게 — 폴더 스스로를 무시시키는 .gitignore
   if ((await fs.read(ctx.abs(`${STATE}/.gitignore`))) == null) await fs.write(ctx.abs(`${STATE}/.gitignore`), '*\n')
   const repoState = await loadRepoState(fs, root)
 
+  // 빠른 길 — 원격 도장이 지난번 그대로고 로컬도 그대로면 볼 것이 없다.
+  // 전체 점검 · 문서 받기(want) 는 늘 제대로 본다
   progress('원격 확인')
+  const stampAtStart = await store.get(STAMP).catch(() => null)
+  if (!full && !want.length && stampAtStart != null && stampAtStart === repoState.stamp && repoState.catalog
+      && Date.now() - repoState.slowAt < SLOW_EVERY_MS && !(await localChanged(fs, root, repoState))) {
+    const cached = new Set(Object.keys(repoState.files).map(docKey))
+    stat.catalog = repoState.catalog.map((c) => ({ path: c.path, cached: cached.has(docKey(c.path)) }))
+    stat.fast = true
+    progress('끝')
+    return stat
+  }
+
   await store.mkdirs(`${ctx.mine}/docs`)
   const others = (await store.list('.mdsync/devices')).filter((e) => e.isDir && e.name !== device).map((e) => e.name)
   const indexes = {}
@@ -131,7 +185,12 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
     // 전체 점검(full)은 이 지름길을 믿지 않고 하나하나 내용으로 견준다
     if (fileSame && remoteSame && !full) { done++; return }
 
-    const r = await syncDoc(ctx, key, f, remote, indexes, myIndex, !!repoState.del[key], stat)
+    // 문서 하나가 실패해도 나머지는 맞춘다 — 기록하지 않았으니 다음 번에 다시 본다
+    let r
+    try { r = await syncDoc(ctx, key, f, remote, indexes, myIndex, !!repoState.del[key], stat) } catch (e) {
+      stat.failed.push(`${f?.rel ?? key}: ${e?.message ?? e}`)
+      return
+    }
     if (r.published) {
       myIndex.docs[key] = r.published
       indexChanged = true
@@ -144,6 +203,22 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
     } else if (r.path) delete repoState.files[r.path]
     if (++done % 25 === 0) progress(`문서 ${done}/${work.length}`)
   })
+
+  let published = false
+  // 문서까지 맞춘 것을 먼저 남긴다. 그림 올리기는 길다(저장소 하나에 수백 MB) — 도중에 끊기거나
+  // 앱을 닫아도 문서 쪽은 처음부터 다시 하지 않게. 예전에는 끝에서만 남겨서, 그림 하나가 실패하면
+  // 매번 문서 수백 개를 새 판으로 다시 올렸다
+  const checkpoint = async () => {
+    if (indexChanged) {
+      myIndex.name = deviceName
+      myIndex.at = new Date().toISOString()
+      await store.put(`${ctx.mine}/index.json`, JSON.stringify(myIndex), 'application/json')
+      indexChanged = false
+      published = true
+    }
+    await fs.write(ctx.abs(`${STATE}/repo.json`), JSON.stringify(repoState))
+  }
+  await checkpoint()
 
   // 그림 — 새로 생긴(또는 바뀐) 것만 원격의 같은 자리에 올린다. 받는 것은 볼 때 (fetchAsset)
   // 저장 직후의 가벼운 동기화(only)에서도 한다 — 그림을 붙이고 저장했는데 그림만 다음 간격까지
@@ -167,21 +242,41 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
       })
       todo = todo.concat(known.filter((a) => !there.get(dirOf(a.rel))?.has(a.rel.split('/').pop())))
     }
-    await pool(todo, concurrency, async (a) => {
-      const b64 = await fs.readB64(ctx.abs(a.rel))
-      await store.putBinary(a.rel, b64, mimeOf(a.rel))
-      repoState.assets[a.rel] = { size: a.size, mtime: a.mtime }
-      stat.assetsUp++
+    // 그림은 둘씩만 — 여럿을 한꺼번에 올리면 Koofr 가 연결을 끊었다 (os error 10053).
+    // 하나가 실패해도 나머지는 올리고, 실패한 것은 적지 않았으니 다음 번에 그것만 다시 올린다
+    let n = 0
+    await pool(todo, Math.min(2, concurrency), async (a) => {
+      progress(`그림 ${++n}/${todo.length}`)
+      try {
+        const b64 = await fs.readB64(ctx.abs(a.rel))
+        await retry(() => store.putBinary(a.rel, b64, mimeOf(a.rel)))
+        repoState.assets[a.rel] = { size: a.size, mtime: a.mtime }
+        stat.assetsUp++
+        // 중간중간 남긴다 — 수백 개를 올리다 앱을 닫아도 올린 것은 다시 올리지 않게
+        if (stat.assetsUp % 20 === 0) await fs.write(ctx.abs(`${STATE}/repo.json`), JSON.stringify(repoState))
+      } catch (e) {
+        stat.failed.push(`${a.rel}: ${e?.message ?? e}`)
+      }
     })
   }
 
-  if (indexChanged) {
-    myIndex.name = deviceName
-    myIndex.at = new Date().toISOString()
-    await store.put(`${ctx.mine}/index.json`, JSON.stringify(myIndex), 'application/json')
+  // 무엇을 올렸으면(문서 판 · 그림) 도장을 새로 쓴다 — 다른 기기가 "바뀌었다" 를 요청 한 번으로 안다.
+  // index 를 올린 **뒤에** 쓴다: 도장이 바뀐 것을 보고 왔는데 index 가 아직이면 안 된다.
+  // 쓰기 직전에 다시 읽어 그새 남이 썼으면 내 것을 "본 것" 으로 적지 않는다 — 남의 고침을 못 보고 넘어가지 않게
+  let seenStamp = stampAtStart
+  // 도장이 아직 없으면(처음 붙인 원격) 지금 만든다 — 그래야 다음부터 빠른 길을 탄다
+  if (published || stat.assetsUp || stampAtStart == null) {
+    const now = await store.get(STAMP).catch(() => null)
+    const mineStamp = newStamp(device)
+    await store.put(STAMP, mineStamp, 'text/plain; charset=utf-8')
+    seenStamp = now === stampAtStart ? mineStamp : null
   }
-  await fs.write(ctx.abs(`${STATE}/repo.json`), JSON.stringify(repoState))
   stat.catalog = catalogOf([myIndex, ...Object.values(indexes)], repoState)
+  // 실패한 것이 있거나, 저장한 문서만 본 것(only)이면 "다 봤다" 고 적지 않는다 — 다음에 제대로 본다
+  repoState.stamp = stat.failed.length || onlySet ? null : seenStamp
+  repoState.slowAt = Date.now()
+  repoState.catalog = stat.catalog.map((c) => ({ path: c.path }))
+  await checkpoint()
   progress('끝')
   return stat
 }

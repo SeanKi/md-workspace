@@ -26,7 +26,7 @@ const EXTS: [&str; 3] = [".md", ".markdown", ".mdx"];
 // 두 앱을 함께 등록해도 서로의 등록을 덮지 않는다
 const PROG_ID: &str = "MDTiptap.md";
 const VERB: &str = "MDTiptap.Open";
-const MENU_TEXT: &str = "MD Tiptap으로 열기";
+const MENU_TEXT: &str = "MDNotePad+로 열기";
 
 fn current_exe() -> Result<String, String> {
     std::env::current_exe()
@@ -90,6 +90,7 @@ mod win {
     pub fn register() -> Result<String, String> {
         let exe = current_exe()?;
         let app = exe_file_name(&exe);
+        // 옵션 없이 = 단순 모드(메모장처럼)가 기본이다. 저장소·동기화는 `--sync` 로 띄운 전체 모드에서
         let command = format!("\"{exe}\" \"%1\"");
         let icon = format!("\"{exe}\",0");
         let c = classes()?;
@@ -102,7 +103,7 @@ mod win {
         // 2. Applications\<exe> — "연결 프로그램" 목록에 이름과 아이콘으로 보이게
         let app_key = format!(r"Applications\{app}");
         let (k, _) = c.create_subkey(&app_key).map_err(|e| e.to_string())?;
-        k.set_value("FriendlyAppName", &"MD Tiptap".to_string()).map_err(|e| e.to_string())?;
+        k.set_value("FriendlyAppName", &"MDNotePad+".to_string()).map_err(|e| e.to_string())?;
         set_default(&c, &format!(r"{app_key}\shell\open\command"), &command)?;
         let (types, _) = c
             .create_subkey(format!(r"{app_key}\SupportedTypes"))

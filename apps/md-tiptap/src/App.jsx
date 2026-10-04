@@ -8,7 +8,7 @@ import SettingsBar, { shrinkMode } from './SettingsBar.jsx'
 import NoteTabs from './NoteTabs.jsx'
 import usePendingCommits from './usePendingCommits.js'
 import { baseName, repoOf } from './repos.js'
-import { loadConfig, saveConfig, onConfigError, flushConfig } from './config.js'
+import { loadConfig, saveConfig, onConfigError, flushConfig, setOwnsRepos } from './config.js'
 import { gitCommit, commitMessage } from './git.js'
 import { SAMPLE } from './sample.js'
 import useExternalChanges from './useExternalChanges.js'
@@ -33,11 +33,11 @@ const DEFAULTS = {
   searchHeight: SEARCH_HEIGHT,
   // Tiptap 은 글자마다 문서 전체를 다시 쓰지 않아 큰 문서도 위지윅으로 연다. 원하면 켠다
   bigDocSource: false,
-  editorPath: '',
   // 동기화 — 기기 ID 는 처음 뜰 때 만든다. 이름은 충돌 블록과 이력에 "누가" 로 나온다
   deviceId: '', deviceName: '', authorName: '', syncSec: DEFAULT_SYNC_SEC,
 }
 const OPS_FALLBACK_SEC = 60
+const NO_REPOS = []
 const MAX_TABS = 30
 
 let seq = 0
@@ -53,6 +53,22 @@ export default function App() {
   const [gitTick, setGitTick] = useState(0)
   // 좁은 화면(폰·세로 태블릿)에서는 트리가 서랍이다. 넓은 화면에서는 이 값을 보지 않는다
   const [sideOpen, setSideOpen] = useState(false)
+  /*
+   * 단순 모드가 기본이다 — 메모장처럼 탭과 편집기만. 저장소 · 동기화 · git 커밋 · 저장소 검색이 모두
+   * 꺼지고 그 단추도 숨는다. `--sync` 를 붙여 띄우면 전체 모드 (폰은 늘 전체 모드 — cli.rs startup_full).
+   *
+   * 저장소 목록(repos)은 그대로 읽고 그대로 저장한다 — 기능만 `work`(= 빈 목록)를 본다. 그래야 단순 모드로
+   * 한 번 열었다고 환경 파일의 저장소가 지워지지 않는다.
+   * 명령줄을 읽기 전(null)에도 단순 모드로 둔다 — 패널이 잠깐 보였다 사라지거나 동기화가 먼저 돌지 않게.
+   * 단순 모드는 창마다 따로 뜨고(메모장처럼), 전체 모드는 하나만 뜬다 (lib.rs). 환경 파일은 여러 창이 함께
+   * 쓰므로 저장소 목록은 전체 모드 창만 쓴다 (config.js setOwnsRepos)
+   */
+  const [simple, setSimple] = useState(isTauri ? null : false)
+  useEffect(() => {
+    if (!isTauri) return
+    invoke('startup_full').then((full) => { setOwnsRepos(full); setSimple(!full) })
+      .catch((e) => { note(`--sync 확인 실패: ${e}`); setSimple(true) })
+  }, [])
 
   /** 열어 둔 노트들 `{ id, path, content, dirty }`. 같은 문서는 탭 하나뿐이다 */
   const [tabs, setTabs] = useState([])
@@ -89,8 +105,10 @@ export default function App() {
     return liveRef.current.get(t.id) ?? t.content
   }, [])
 
-  const cfgRef = useRef({ settings, repos })
-  cfgRef.current = { settings, repos }
+  // 기능이 보는 저장소 — 단순 모드에서는 없다. repos 는 목록 그대로(저장용)
+  const work = simple === false ? repos : NO_REPOS
+  const cfgRef = useRef({ settings, repos, work })
+  cfgRef.current = { settings, repos, work }
   const recentRef = useRef(recent)
   recentRef.current = recent
 
@@ -104,8 +122,8 @@ export default function App() {
 
   useEffect(() => {
     const full = active
-      ? `${active.dirty ? '● ' : ''}${baseName(active.path) || "새 문서"} — MD Tiptap v${__APP_VERSION__}`
-      : `MD Tiptap v${__APP_VERSION__}`
+      ? `${active.dirty ? '● ' : ''}${baseName(active.path) || "새 문서"} — MDNotePad+ v${__APP_VERSION__}`
+      : `MDNotePad+ v${__APP_VERSION__}`
     document.title = full
     if (!isTauri) return
     import('@tauri-apps/api/window')
@@ -172,6 +190,28 @@ export default function App() {
     setRepos((rs) => { const n = rs.filter((r) => r.id !== id); save3(null, n, null); return n })
   }, [save3])
 
+  /** 저장소 펼침 · 펼친 폴더 — 환경 파일에 남겨 다음에 열 때 그대로 (RepoTree) */
+  const setRepoView = useCallback((id, patch) => {
+    setRepos((rs) => {
+      const n = rs.map((r) => (r.id === id ? { ...r, ...patch } : r))
+      save3(null, n, null)
+      return n
+    })
+  }, [save3])
+
+  /** 저장소 순서 바꾸기 (▲▼). INI 의 [repo.N] 번호도 이 순서로 다시 매겨진다 */
+  const moveRepo = useCallback((id, by) => {
+    setRepos((rs) => {
+      const i = rs.findIndex((r) => r.id === id)
+      const j = i + by
+      if (i < 0 || j < 0 || j >= rs.length) return rs
+      const n = [...rs]
+      ;[n[i], n[j]] = [n[j], n[i]]
+      save3(null, n, null)
+      return n
+    })
+  }, [save3])
+
   /* ---------- 최근 문서 ---------- */
 
   const noteRecent = useCallback((path, ok) => {
@@ -217,7 +257,7 @@ export default function App() {
     try {
       // MDX 가 아니라 GFM 으로 읽으므로 열기 전에 다듬을 것이 없다
       // 원격이 붙은 저장소의 ☁ 문서(아직 받지 않은 것)는 지금 받는다
-      const repo = repoOf(cfgRef.current.repos, path)
+      const repo = repoOf(cfgRef.current.work, path)
       const cloud = isTauri && repo?.remote && !(await invoke('stat_file', { path }))
       if (cloud) {
         setStatus('원격에서 받는 중…')
@@ -258,7 +298,7 @@ export default function App() {
 
   /** 저장이 실제로 일어났을 때만 커밋한다. 저장소가 git 이 아니면 조용히 넘어간다 */
   const commit = useCallback(async (path) => {
-    const { settings: cfg, repos: rs } = cfgRef.current
+    const { settings: cfg, work: rs } = cfgRef.current
     if (!cfg.autoCommit) return
     const repo = repoOf(rs, path)
     if (!repo) return
@@ -284,7 +324,7 @@ export default function App() {
       await invoke('write_file', { path: t.path, contents: after })
       setTabs((ts) => ts.map((x) => (x.id === t.id ? { ...x, dirty: false } : x)))
       setStatus(`저장됨 ${new Date().toLocaleTimeString()}`)
-      const repo = repoOf(cfgRef.current.repos, t.path)
+      const repo = repoOf(cfgRef.current.work, t.path)
       if (before != null) {
         const root = repo?.path ?? t.path.replace(/[\\/][^\\/]*$/, '')
         // 커밋보다 먼저 — 그림이 옮겨진 것까지 한 커밋에 담긴다. 실패해도 저장은 된 것이다
@@ -379,7 +419,7 @@ export default function App() {
   /* ---------- 동기화 (원격 = WebDAV) ---------- */
 
   const sync = useSync({
-    repos, settings, update, ready: configReady,
+    repos: work, settings, update, ready: configReady && simple === false,
     // 맞추기 전에 고친 탭을 모두 저장한다 — 동기화는 파일을 본다
     beforeSync: () => persistAll(),
     afterSync: async (repo, r) => {
@@ -399,9 +439,11 @@ export default function App() {
     },
   })
   syncRef.current = sync
-  const hasRemote = repos.some((r) => r.remote)
-  const syncBusy = repos.some((r) => r.remote && sync.state[r.id]?.busy)
-  const syncSummary = repos.filter((r) => r.remote).map((r) => {
+  const hasRemote = work.some((r) => r.remote)
+  const syncBusy = work.some((r) => r.remote && sync.state[r.id]?.busy)
+  // 단추에 보일 진행 — 그림 120/951 처럼. 처음 붙인 큰 저장소는 몇 분 걸린다
+  const syncProgress = work.map((r) => sync.state[r.id]).find((st) => st?.busy)?.msg ?? ''
+  const syncSummary = work.filter((r) => r.remote).map((r) => {
     const st = sync.state[r.id] ?? {}
     return `${r.name}: ${st.error ? `실패 — ${st.error}` : st.busy ? st.msg || '맞추는 중…' : st.at ? `${st.msg} (${new Date(st.at).toLocaleTimeString()})` : '아직'}`
   }).join('\n')
@@ -447,13 +489,13 @@ export default function App() {
   ctxRef.current = {
     path: active?.path ?? null, imageDir: settings.imageDir, openFile: openDoc,
     imageShrink: shrinkMode(settings.imageShrink) === 'always'
-      || (shrinkMode(settings.imageShrink) === 'remote' && !!(active?.path && repoOf(repos, active.path)?.remote)),
+      || (shrinkMode(settings.imageShrink) === 'remote' && !!(active?.path && repoOf(work, active.path)?.remote)),
     imageMaxSide: settings.imageMaxSide,
     // 이미지는 문서 폴더 기준이라 새 문서는 저장부터 받는다
     ensureSaved: () => saveAs(activeRef.current),
     // 그림이 캐시에 없다(다른 기기에서 붙인 것) — 원격에서 받는다
     fetchImage: (abs) => {
-      const repo = repoOf(cfgRef.current.repos, abs)
+      const repo = repoOf(cfgRef.current.work, abs)
       return repo?.remote ? syncRef.current?.fetchImage(repo, abs) : Promise.resolve(false)
     },
     // [[내부 링크]] — Obsidian 처럼 이름으로 찾는다. 지금 문서의 폴더 → 저장소 전체 (lib.rs find_note)
@@ -468,8 +510,8 @@ export default function App() {
        *      (예전에는 이 폴더 "한 층" 만 봐서 `deep/…/노트B.md` 를 못 찾았다)
        *   3. 나머지 저장소
        */
-      const repos = cfgRef.current.repos.map((r) => r.path)
-      const home = cur ? repoOf(cfgRef.current.repos, cur)?.path : null
+      const repos = cfgRef.current.work.map((r) => r.path)
+      const home = cur ? repoOf(cfgRef.current.work, cur)?.path : null
       const roots = [home, near, ...repos].filter((p, i, a) => p && a.findIndex((q) => q && samePath(q, p)) === i)
       const found = await invoke('find_note', { roots, near, name })
         .catch((e) => { note(`내부 링크 찾기 실패: ${e}`); return null })
@@ -484,7 +526,7 @@ export default function App() {
     noteOp(kind, from, to)
     // 원격이 붙은 저장소 — 지운 것은 원격에서도 지우고, 옮긴 것은 옛 자리를 지우고 새 자리로 올린다
     // (옮길 때는 받아 둔 것만 — 받지 않은 ☁ 문서는 로컬에 없어 함께 옮겨지지 않았다)
-    const repo = repoOf(cfgRef.current.repos, from)
+    const repo = repoOf(cfgRef.current.work, from)
     if (repo?.remote) {
       syncRef.current?.removed(repo, from, { cachedOnly: to !== null })
       if (to) syncRef.current?.saved(repo, to)
@@ -571,8 +613,10 @@ export default function App() {
     ? 'source' : 'rich-text')
 
   return (
-    <div className={`shell${sideOpen ? ' side-open' : ''}`}>
+    <div className={`shell${sideOpen ? ' side-open' : ''}${simple !== false ? ' simple' : ''}`}>
       <div className="side-scrim" onClick={() => setSideOpen(false)} />
+      {/* 단순 모드에는 저장소 패널이 아예 없다 — 트리를 읽거나 git 을 묻지도 않는다 */}
+      {simple === false && (<>
       <aside className="sidebar" style={{ width: settings.sideWidth ?? SIDE_DEFAULT }}>
         <div className="side-head">
           <span>저장소</span>
@@ -586,12 +630,12 @@ export default function App() {
         <div className="side-body">
           {repos.length === 0
             ? <div className="empty">아직 저장소가 없습니다.<br />“+ 추가”로 폴더를 등록하세요.</div>
-            : repos.map((r) => (
+            : repos.map((r, i) => (
                 <RepoTree key={r.id} repo={r} activePath={activePath} gitTick={gitTick}
                           onOpen={openFromSide} onRemove={removeRepo}
+                          onMove={(by) => moveRepo(r.id, by)} first={i === 0} last={i === repos.length - 1}
+                          onView={(p) => setRepoView(r.id, p)}
                           onPathChanged={onPathChanged}
-                          editorPath={settings.editorPath}
-                          setEditorPath={(p) => update({ editorPath: p })}
                           sync={sync.state[r.id]}
                           onSync={() => sync.run(r).catch(() => {})}
                           onRemote={() => setRemoteDlg({ mode: 'connect', repo: r })} />
@@ -600,6 +644,7 @@ export default function App() {
       </aside>
 
       <SideSplit onChange={(w) => update({ sideWidth: w })} />
+      </>)}
 
       <main className="main">
         <NoteTabs tabs={tabs} activeId={activeId} onSelect={setActiveId} onClose={closeTab}
@@ -607,7 +652,7 @@ export default function App() {
                   onClearRecent={() => { setRecent([]); save3(null, null, []) }} />
 
         <div className="titlebar">
-          <button className="side-toggle" onClick={() => setSideOpen((v) => !v)} title="저장소">☰</button>
+          {simple === false && <button className="side-toggle" onClick={() => setSideOpen((v) => !v)} title="저장소">☰</button>}
           {/* 경로는 골라서 복사할 수 있다. 두 번 누르면 통째로 골라진다 */}
           <span className="path selectable" title={activePath ? `${activePath}\n두 번 눌러 고르고 Ctrl+C 로 복사` : ''}
                 onDoubleClick={(e) => { const r = document.createRange(); r.selectNodeContents(e.currentTarget); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r) }}>
@@ -624,18 +669,19 @@ export default function App() {
           <button className="desk-only" onClick={newDoc} title="새 문서 (Ctrl+N)">새로</button>
           <button className="desk-only" onClick={openAny} title="아무 파일이나 열기 (Ctrl+O)">열기</button>
           {/* 원격이 붙은 저장소가 있을 때만 — 누르면 전체 점검 (useSync.js) */}
-          <button className={`sync-btn${syncBusy ? ' busy' : ''}`} disabled={!hasRemote || syncBusy}
-                  onClick={() => sync.syncAll(true)}
+          {/* 도는 중에도 켜 둔다 — 꺼 두면 "안 되는 단추" 로 보인다. 도는 중에 누르면 지금 것이 끝난 뒤 한 번 더 */}
+          {simple === false && <button className={`sync-btn${syncBusy ? ' busy' : ''}`} disabled={!hasRemote}
+                  onClick={() => { if (syncBusy) setStatus('동기화 중입니다 — 끝나면 전체 점검을 한 번 더 합니다'); sync.syncAll(true) }}
                   title={hasRemote ? `동기화 — 전체 점검\n${syncSummary}` : '원격(WebDAV)이 붙은 저장소가 없습니다'}>
-            <span className="sync-ico">⟳</span> 동기화
-          </button>
+            <span className="sync-ico">⟳</span> {syncBusy ? (syncProgress || '동기화 중') : '동기화'}
+          </button>}
           <button onClick={saveNow} title="Ctrl+S · 다른 이름은 Ctrl+Shift+S">저장</button>
           <button onClick={() => setShowSettings((v) => !v)} title="설정">⚙</button>
         </div>
 
         {showSettings && (
           <SettingsBar settings={settings} onChange={update} opsFallbackSec={OPS_FALLBACK_SEC}
-                       docPath={activePath}
+                       docPath={activePath} simple={simple !== false}
                        configPath={configPath} />
         )}
 

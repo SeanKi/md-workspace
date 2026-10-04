@@ -2063,7 +2063,7 @@ dependencies = [
 
 [[package]]
 name = "md-core"
-version = "0.16.0"
+version = "1.16.1"
 dependencies = [
  "base64 0.22.1",
  "keyring",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "md-editor"
-version = "0.16.0"
+version = "1.16.1"
 dependencies = [
  "md-core",
  "serde",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "md-sync-note"
-version = "0.16.0"
+version = "1.16.1"
 dependencies = [
  "md-core",
  "serde",
@@ -2102,7 +2102,7 @@ dependencies = [
 
 [[package]]
 name = "md-tiptap"
-version = "0.16.0"
+version = "1.16.1"
 dependencies = [
  "md-core",
  "serde",

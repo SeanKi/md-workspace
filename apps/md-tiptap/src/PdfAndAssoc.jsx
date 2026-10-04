@@ -66,7 +66,7 @@ export function WinAssoc() {
       <button type="button" onClick={() => run('assoc_unregister')} disabled={!st?.registered && !stale}>해제</button>
       <span className="hint">
         {st?.registered
-          ? '등록됨 — 탐색기에서 .md 우클릭 → “MD Tiptap으로 열기”. 이미 떠 있으면 그 창의 탭으로 열린다.'
+          ? '등록됨 — 탐색기에서 .md 우클릭 → “MDNotePad+로 열기”. 메모장처럼 새 창(단순 모드)으로 열린다.'
           : stale ? '다른 빌드로 등록돼 있습니다. “다시 등록”을 누르세요.'
             : '.md · .markdown · .mdx 우클릭 메뉴와 연결 프로그램 목록에 추가합니다.'}
         {msg && <b> · {msg}</b>}

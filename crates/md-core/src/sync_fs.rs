@@ -49,8 +49,11 @@ pub fn stat_file(path: String) -> Option<FileStat> {
     m.is_file().then(|| FileStat { size: m.len(), mtime: mtime_ms(&m) })
 }
 
-/// 동기화할 첨부(그림)의 확장자
-const ASSET_EXT: [&str; 9] = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "ico"];
+/// 첨부 = 문서가 아닌 파일 전부 (그림 · PDF · 녹음 · 엑셀 …). 그림만 올렸더니 폴더의 일부만 원격에 갔다.
+/// 문서(이 확장자)는 블록 단위로 따로 맞추므로 첨부에서 뺀다
+const DOC_EXT: [&str; 3] = ["md", "markdown", "mdx"];
+/// 쓰는 중인 임시 파일 — 올리면 반쯤 쓴 것이 간다
+const TEMP_EXT: [&str; 5] = ["tmp", "temp", "part", "crdownload", "swp"];
 /// 첨부를 찾을 때도 들어가지 않는 폴더. `.image` 같은 다른 점 폴더에는 들어간다 —
 /// 붙여 넣은 그림은 문서 옆의 `.image/` 에 쌓인다
 const ASSET_SKIP: [&str; 7] = [".mdsync", ".git", ".obsidian", ".mdtrash", ".trash", "node_modules", ".mdlog"];
@@ -67,7 +70,12 @@ fn collect_assets(dir: &Path, base: &Path, out: &mut Vec<MdFile>) {
             continue;
         }
         let ext = p.extension().and_then(|x| x.to_str()).map(|x| x.to_lowercase()).unwrap_or_default();
-        if !ASSET_EXT.contains(&ext.as_str()) {
+        // 문서는 블록 단위로 따로 맞춘다. 오피스가 여는 동안 만드는 `~$문서.xlsx` · `~7900` 같은 임시 파일은 뺀다
+        // 숨김 파일(`.gitignore` · `.DS_Store`)과 탐색기가 만드는 것도 뺀다
+        let lower = name.to_lowercase();
+        if DOC_EXT.contains(&ext.as_str()) || name.starts_with('~') || name.starts_with('.') || TEMP_EXT.contains(&ext.as_str())
+            || lower == "thumbs.db" || lower == "desktop.ini"
+        {
             continue;
         }
         let (Ok(m), Ok(rel)) = (e.metadata(), p.strip_prefix(base)) else { continue };
@@ -75,7 +83,7 @@ fn collect_assets(dir: &Path, base: &Path, out: &mut Vec<MdFile>) {
     }
 }
 
-/// 저장소의 그림 파일 전부 (점 폴더 `.image` 포함)
+/// 저장소의 첨부 파일 전부 — 문서가 아닌 것 (점 폴더 `.image` 포함)
 #[tauri::command(async)]
 pub fn list_assets(root: String) -> Result<Vec<MdFile>, String> {
     let base = Path::new(&root);

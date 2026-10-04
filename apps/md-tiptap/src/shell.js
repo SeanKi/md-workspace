@@ -1,33 +1,14 @@
 /** 노트를 바깥으로 내보내는 것들 — 다른 앱으로 열기, 경로를 클립보드에. */
 
 import { invoke, isTauri } from './core.js'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
 
 const demo = () => Promise.reject(new Error('브라우저 데모 모드에서는 할 수 없습니다.'))
 
-/**
- * MD Notepad 에 경로를 넘겨 띄운다.
- * `exe` 는 설정에 적어 둔 실행 파일 경로(없으면 Rust 가 알아서 찾는다 — `open_with.rs`).
- */
-export const openInMdEditor = (path, exe) => (
-  isTauri ? invoke('open_in_md_editor', { path, exe: exe || null }) : demo()
-)
+/** 문서를 MDNotePad+ 단순 모드 새 창으로 (open_with.rs) */
+export const openSimple = (path) => (isTauri ? invoke('open_simple', { path }) : demo())
 
-/** 지금 찾아지는 MD Notepad 의 경로. 없으면 빈 글자 */
-export const mdNotepadPath = (exe) => (
-  isTauri ? invoke('md_notepad_path', { exe: exe || null }) : Promise.resolve('')
-)
-
-/** 실행 파일을 직접 고르게 한다. 취소하면 빈 글자 */
-export async function pickMdNotepad() {
-  if (!isTauri) return ''
-  const picked = await openDialog({
-    title: 'MD Notepad 실행 파일을 고르세요',
-    multiple: false,
-    filters: [{ name: '실행 파일', extensions: ['exe'] }],
-  })
-  return (typeof picked === 'string' ? picked : picked?.path) ?? ''
-}
+/** 폴더를 탐색기로 */
+export const openInExplorer = (path) => (isTauri ? invoke('open_in_explorer', { path }) : demo())
 
 /**
  * 클립보드에 글자를 넣는다.

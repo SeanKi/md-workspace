@@ -598,3 +598,21 @@ body.row-resizing, body.row-resizing * { cursor: row-resize !important; user-sel
 .sync-btn .sync-ico { display: inline-block; }
 .sync-btn.busy .sync-ico { animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
+
+/* 단순 모드(기본, --sync 없이) — 저장소 패널 자체를 그리지 않는다 (App.jsx). 좁은 화면의 서랍 단추도 없다 */
+
+/* 제목줄 — 경로가 길어도 단추 글자가 세로로 접히지 않게. 줄어드는 것은 경로뿐이다 */
+.titlebar button { white-space: nowrap; flex: none; }
+.titlebar .path { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 721px) {
+  .titlebar .status { flex: none; white-space: nowrap; }
+}
+.titlebar .sync-btn.busy { color: #1d4ed8; border-color: #c4d4f5; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+/* 저장소 순서 ▲▼ — 마우스를 올렸을 때만. 터치 화면은 늘 보인다 */
+.repo-move { display: inline-flex; gap: 1px; visibility: hidden; }
+.repo-head:hover .repo-move { visibility: visible; }
+@media (hover: none) { .repo-move { visibility: visible; } }
+.repo-move button { font-size: 9px; line-height: 1; padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: #8a919a; cursor: pointer; }
+.repo-move button:hover:not(:disabled) { background: #d5dae1; color: #333; }
+.repo-move button:disabled { opacity: .3; cursor: default; }

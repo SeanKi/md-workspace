@@ -127,6 +127,11 @@ export function davClient(baseUrl, transport) {
 
     async putBinary(path, b64, contentType = 'application/octet-stream') {
       const send = () => transport({ method: 'PUT', url: url(path), headers: [['Content-Type', contentType]], body_b64: b64 })
+      // 폴더부터 만든다. 큰 파일을 없는 폴더에 보내면 서버가 409 를 **받는 도중에** 답하고 연결을 끊는다 —
+      // 그러면 409 는 못 보고 "연결 중단(os error 10053)" 만 남아, 409 를 보고 폴더를 만드는 길이 영영 안 열린다.
+      // Koofr 에서 15MB 넘는 그림 다섯 개가 그렇게 매번 실패했다. 만든 폴더는 기억하므로 폴더마다 한 번이다
+      const dir = path.split('/').slice(0, -1).join('/')
+      if (dir) await mkdirs(dir)
       let r = await send()
       if (r.status === 409 || r.status === 404) {
         await mkdirs(path.split('/').slice(0, -1).join('/'))
