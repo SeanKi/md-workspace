@@ -99,3 +99,131 @@
 
 .prose img { max-width: 100%; border-radius: 6px; vertical-align: middle; }
 .prose img.ProseMirror-selectednode { outline: 3px solid #93b4f5; }
+
+/* --- 변경점 비교 (md-editor/app.css 에서 가져옴) --- */
+.diff {
+  margin: 4px 0 18px;
+  border: 1px solid #e2e5ea;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.diff.empty { padding: 12px 14px; font-size: 12px; color: #7a8087; }
+.diff-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  font-size: 11px;
+  background: #f5f6f8;
+  border-bottom: 1px solid #e2e5ea;
+}
+.diff-head .add { color: #1a7f37; font-weight: 700; }
+.diff-head .del { color: #b91c1c; font-weight: 700; }
+.diff-legend { color: #8a8f97; margin-left: auto; }
+/* 좌우 두 쪽을 격자 하나에 담는다 (번호·본문 × 2).
+   쪽마다 따로 스크롤하면 줄이 어긋나므로 상자는 하나다.
+   본문 칸은 줄바꿈을 허용한다 — 길어지면 그 줄만 높아지고 좌우는 그대로 맞는다 */
+.diff-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  max-height: 340px;
+  overflow: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  background: #fff;
+}
+.diff-col-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  grid-column: span 2;
+  padding: 4px 10px;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f5f6f8;
+  border-bottom: 1px solid #e2e5ea;
+}
+.diff-col-head.left { color: #b91c1c; }
+.diff-col-head.right { color: #1a7f37; border-left: 1px solid #e2e5ea; }
+
+.diff-no {
+  padding: 0 6px;
+  text-align: right;
+  color: #b9bec6;
+  background: #fafbfc;
+  user-select: none;
+}
+.diff-cell { padding: 0 8px; white-space: pre-wrap; word-break: break-all; }
+/* 가운데를 가르는 선. 오른쪽 쪽번호 칸이 그 자리다 */
+.diff-no.right { border-left: 1px solid #dfe3e8; }
+.diff-cell.same { color: #7a8087; }
+.diff-cell.left.change { background: #fdecec; color: #7f1d1d; }
+.diff-cell.right.change { background: #e9f7ec; color: #14532d; }
+/* 반대쪽에 짝이 없는 줄 — 빈 칸이라는 것이 보여야 "지웠다/더했다" 가 읽힌다.
+   위의 change 규칙보다 셈이 세야 색이 덮이지 않는다 */
+.diff-cell.change.blank { background: repeating-linear-gradient(135deg, #f6f7f9 0 6px, #eaedf1 6px 12px); }
+
+.diff-gap {
+  grid-column: 1 / -1;
+  padding: 2px 10px;
+  color: #a4aab2;
+  background: #fafbfc;
+  font-style: italic;
+}
+/* 편집기의 비교 모드는 화면을 다 쓴다 */
+.diff.tall { margin: 16px; }
+.diff.tall .diff-grid { max-height: none; }
+
+/* --- 편집기 껍데기 (SplitEditor.jsx): 모드 · 창 나누기 --- */
+.tt-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tt-shell > .editor-wrap { flex: 1 1 0; min-height: 0; }
+.tt-shell > .tt-toolbar { position: static; }
+.tt-toolbar .grow { flex: 1; }
+.tt-modes { display: inline-flex; gap: 0; border: 1px solid #dcdfe4; border-radius: 6px; overflow: hidden; }
+.tt-modes button { border-radius: 0 !important; height: 26px !important; font-size: 12px !important; }
+.tt-modes button + button { border-left: 1px solid #e5e7eb !important; }
+.tt-split-bar { flex: none; height: 9px; cursor: row-resize; background: #eef0f3; border-top: 1px solid #dcdfe4; border-bottom: 1px solid #dcdfe4; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.tt-split-bar:hover { background: #dbe6fb; }
+.tt-split-bar > span { width: 36px; height: 3px; border-radius: 2px; background: #a9b1bc; }
+.editor-wrap.source { background: #fff; display: flex; flex-direction: column; }
+.source-view {
+  flex: 1; width: 100%; min-height: 100%; padding: 18px 22px;
+  border: 0; outline: none; resize: none;
+  font: 13.5px/1.6 ui-monospace, "Cascadia Mono", Consolas, "Malgun Gothic", monospace;
+  color: #24292f; tab-size: 4;
+}
+@media (max-width: 720px) { .tt-modes .split-btn { display: none; } }
+
+/* --- Ctrl+F 찾기 줄 (FindBar.jsx) --- */
+.tt-findbar {
+  flex: none; display: flex; align-items: center; gap: 4px; justify-content: flex-end;
+  padding: 5px 10px; background: #fffdf3; border-bottom: 1px solid #ecdfae;
+}
+.tt-findbar input { width: 240px; max-width: 50vw; font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid #cfd4da; border-radius: 5px; outline: none; }
+.tt-findbar input:focus { border-color: #2563eb; }
+.tt-findbar .count { min-width: 44px; font-size: 12px; color: #6b7280; text-align: center; }
+.tt-findbar button { min-width: 28px; height: 28px; border: 1px solid transparent; border-radius: 5px; background: transparent; cursor: pointer; }
+.tt-findbar button:hover { background: #f0ead2; }
+.prose .tt-find { background: #fde68a; border-radius: 2px; }
+.prose .tt-find-cur { background: #f59e0b; color: #000; }
+
+/* --- 링크 풍선 (LinkBubble.jsx) --- */
+.tt-editor { position: relative; }
+.tt-link-bubble {
+  position: absolute; z-index: 25; display: flex; align-items: center; gap: 4px;
+  max-width: 420px; padding: 5px 6px 5px 10px;
+  background: #fff; border: 1px solid #d5dae1; border-radius: 8px; box-shadow: 0 6px 18px rgba(16, 24, 40, .14);
+  font-size: 12.5px;
+}
+.tt-link-bubble a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1d4ed8; text-decoration: underline; cursor: pointer; }
+.tt-link-bubble input { width: 260px; font: inherit; padding: 4px 7px; border: 1px solid #cfd4da; border-radius: 5px; outline: none; }
+.tt-link-bubble input:focus { border-color: #2563eb; }
+.tt-link-bubble button { flex: none; font: inherit; font-size: 12px; padding: 3px 8px; border: 1px solid #dcdfe4; border-radius: 5px; background: #f6f7f9; cursor: pointer; }
+.tt-link-bubble button:hover { background: #e9ecf1; }
+
+/* Obsidian 식 [[내부 링크]] — 파일에는 글자 그대로, 화면에서만 링크처럼 (wikilinks.js) */
+.prose .md-wikilink { color: #6d28d9; text-decoration: underline dotted; text-underline-offset: 3px; }
+body.md-ctrl .prose .md-wikilink { cursor: pointer; text-decoration-style: solid; }
+.tt-link-bubble .wiki-tag { flex: none; font-size: 10.5px; color: #6d28d9; background: #f3efff; border-radius: 4px; padding: 1px 5px; }

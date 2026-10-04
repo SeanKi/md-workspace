@@ -27,7 +27,7 @@ const BLOCKS = [
   ['p', '본문'], ['1', '제목 1'], ['2', '제목 2'], ['3', '제목 3'], ['4', '제목 4'],
 ]
 
-export default function Toolbar({ editor, ctxRef }) {
+export default function Toolbar({ editor, ctxRef, extra, onLink }) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -42,13 +42,6 @@ export default function Toolbar({ editor, ctxRef }) {
   const c = () => editor.chain().focus()
 
   const setBlock = (v) => (v === 'p' ? c().setParagraph().run() : c().setHeading({ level: Number(v) }).run())
-  const setLink = () => {
-    const prev = editor.getAttributes('link').href ?? ''
-    const href = window.prompt('링크 주소 (비우면 링크 해제)', prev)
-    if (href === null) return
-    if (!href.trim()) c().extendMarkRange('link').unsetLink().run()
-    else c().extendMarkRange('link').setLink({ href: href.trim() }).run()
-  }
 
   return (
     <div className="tt-toolbar" onMouseDown={(e) => { if (e.target.tagName !== 'SELECT') keep(e) }}>
@@ -71,13 +64,14 @@ export default function Toolbar({ editor, ctxRef }) {
       <Btn title="할 일 목록" on={s.task} onClick={() => c().toggleTaskList().run()}>☑</Btn>
       <Btn title="인용" on={s.quote} onClick={() => c().toggleBlockquote().run()}>❝</Btn>
       <span className="sep" />
-      <Btn title="링크" on={s.link} onClick={setLink}>🔗</Btn>
+      <Btn title="링크 (Ctrl+K)" on={s.link} onClick={onLink}>🔗</Btn>
       <Btn title="표 넣기" onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>▦</Btn>
       <Btn title="이미지 넣기" onClick={() => pickImages(editor.view, ctxRef?.current)}>🖼</Btn>
       <Btn title="코드블록" onClick={() => c().toggleCodeBlock().run()}>{'{ }'}</Btn>
       <Btn title="Mermaid 다이어그램" onClick={() => c().setCodeBlock({ language: 'mermaid' }).run()}>◇</Btn>
       <Btn title="구분선" onClick={() => c().setHorizontalRule().run()}>―</Btn>
       {s.table && <TableTools editor={editor} />}
+      {extra && <><span className="grow" />{extra}</>}
     </div>
   )
 }

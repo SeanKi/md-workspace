@@ -101,3 +101,37 @@ npm run test:roundtrip -- <폴더>   :: 왕복 시험 (파일을 쓰지 않는�
 1. 위 "사람 손으로" 세 가지 → 특히 한글. 문제가 있으면 `.mdlog` 의 IME 기록부터 본다
 2. 링크 풍선 UI, 원본 모드를 CodeMirror 로
 3. 결과가 좋으면 Phase 1 — `editor-core` 를 이 편집기로 갈아 끼우고 두 앱의 껍데기(탭·트리·감시)를 그대로 잇는다
+
+***
+
+## 링크 — 시행착오 기록 (MDX v0.13.0 에 이어서)
+
+MDX 때의 교훈은 "**화면의 href 를 믿지 말고 노드에게 물어라**" 였다(lexical 이 `https://` 를 붙였다).
+Tiptap 은 링크 표시(mark)가 마크다운에 적힌 주소를 그대로 들고 있어 그 문제는 없다.
+대신 아래 다섯 가지를 겪었다. 브라우저 시험으로는 **하나도 드러나지 않았고**, 실제 WebView2 를
+원격 디버그 포트로 붙잡고 진짜 마우스 입력(Ctrl 포함)을 넣어서야 보였다.
+
+| 증상 | 원인 | 지금 |
+|---|---|---|
+| Ctrl+클릭하면 팝업 창이 따로 뜬다 | Tiptap Link 가 `target="_blank"` 를 붙이고, WebView2 는 새 창 요청을 처리하는 쪽이 없으면 **팝업 창을 연다** | `HTMLAttributes: { target: null, rel: null }` + DOM `click`·`auxclick` 을 **캡처 단계**에서 먼저 막는다 (`links.js`) |
+| 링크 넣기 창이 안 뜬다 | `window.prompt` — Tauri 창에서 믿을 수 없다 | 링크 풍선(`LinkBubble.jsx`), Ctrl+K |
+| 다른 문서는 열리는데 `#제목` 자리로 안 간다 | `linkNav.followHref` 가 다른 문서를 열 때 `openFile(경로)` 만 넘겨 **`#제목` 을 버린다**. 게다가 옛 `revealText.js` 는 DOM 을 뒤져서 ① 탭 전환 직후엔 **이전 문서 화면**을 뒤지고 ② DOM 선택은 ProseMirror 가 다음 그리기에서 **덮는다** | `follow()` 가 `openFile(경로, { heading })` 로 넘기고, 편집기가 **문서 모델**에서 제목을 찾아 선택·스크롤한다 (`reveal.js`). 새 탭이면 그 탭의 편집기가 만들어진 뒤에 한다 (`SplitEditor` 의 `reveal`) |
+| Ctrl+클릭이 아무 일도 안 한다 (조용히) | 클릭 처리 안의 지역 변수 `follow`(Ctrl 을 눌렀나) 가 **같은 이름의 함수 `follow` 를 가렸다** — `TypeError` 가 콘솔에만 남았다 | 이름을 `go` 로. 실제 앱의 예외는 CDP 로 받아 봐야 보인다 |
+| 저장소 밖에서 연 문서의 `[[노트#제목]]` 이 안 넘어간다 | 이름 찾기가 "이 문서의 폴더 **한 층** → 등록된 저장소" 만 봤다. Ctrl+O 로 연 `link-vault/index.md` 에서 `deep/깊은 폴더/노트B.md` 는 어느 쪽에도 없다. 시험 때는 link-vault 를 저장소로 등록해 둬서 드러나지 않았다 — **사용자의 설정 파일 그대로** 다시 띄워서야 보였다 | 찾는 차례를 Obsidian 처럼: 이 문서가 든 저장소(볼트) → **이 문서의 폴더와 그 아래 전부** → 나머지 저장소 |
+| `[[노트]]` 가 그냥 글자다 | GFM 에 없는 문법 | 꾸밈(decoration)으로만 링크처럼 — 파일은 그대로. 이름으로 찾는다: 지금 폴더 → 저장소 전체, 점 폴더 제외 (`lib.rs find_note`) |
+
+### 시험 — 실제 앱에서 11가지 (모두 통과)
+
+`[글](sub/다른글.md)` · `%20` 든 주소 · `<꺾쇠 주소>` · 확장자 없는 주소 · `[[노트]]` ·
+`[[노트#제목]]` · `[[노트|별칭]]` · `[[#제목]]` · `[글](#제목)` · `[글](다른.md#제목)` · 웹 주소.
+Ctrl+클릭과 "풍선 → 주소 누르기" 두 길 모두. 도착한 뒤 **커서가 그 제목에 있는지**까지 본다.
+
+```bash
+# 실제 앱을 디버그 포트로 띄우기 (사용 중인 창과 겹치지 않게 identifier 를 바꾼다)
+WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 \
+  npx tauri dev --config '{"identifier":"com.smallproject.mdtiptap.linktest"}'
+# 그 뒤 ws://127.0.0.1:9333 로 Runtime.evaluate · Input.dispatchMouseEvent(modifiers: 2 = Ctrl)
+```
+
+내 노트에서 찾은 것: Notion 에서 내보낸 링크(`%E1%84%86…` — 한글이 **자모로 쪼개진(NFD)** 채
+퍼센트 인코딩)는 가리키는 폴더 자체가 저장소에 없어 어느 편집기로도 열리지 않는다.

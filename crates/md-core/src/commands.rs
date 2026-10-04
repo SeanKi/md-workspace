@@ -229,7 +229,26 @@ pub fn delete_path(path: String) -> Result<(), String> {
     if !Path::new(&path).exists() {
         return Err("없는 경로입니다.".into());
     }
-    trash::delete(&path).map_err(|e| e.to_string())
+    to_trash(Path::new(&path))
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn to_trash(path: &Path) -> Result<(), String> {
+    trash::delete(path).map_err(|e| e.to_string())
+}
+
+/// 폰에는 OS 휴지통이 없다. 같은 폴더의 `.mdtrash/` 로 옮긴다 — 그래도 영영 지우지는
+/// 않는다. 이름 앞에 시각을 붙여 같은 이름을 두 번 지워도 겹치지 않게 한다.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn to_trash(path: &Path) -> Result<(), String> {
+    let dir = path.parent().ok_or("상위 폴더가 없습니다.")?.join(".mdtrash");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let name = path.file_name().ok_or("이름이 없는 경로입니다.")?.to_string_lossy();
+    std::fs::rename(path, dir.join(format!("{stamp}-{name}"))).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

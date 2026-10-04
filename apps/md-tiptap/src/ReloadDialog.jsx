@@ -1,0 +1,33 @@
+import React from 'react'
+import { DiffView } from '@md/editor-tiptap'
+import { baseName } from './repos.js'
+
+/**
+ * 열어 둔 파일이 밖에서 바뀌었는데 내 편집분도 있을 때 고르게 한다 (md-editor/ReloadDialog.jsx).
+ * 선택지는 둘뿐이다 — 바뀐 파일을 불러오거나, 내 내용으로 덮어쓰거나.
+ */
+export default function ReloadDialog({ path, mine, theirs, onReload, onOverwrite }) {
+  return (
+    <div className="modal-back">
+      <div className="modal">
+        <div className="modal-title">파일이 밖에서 바뀌었습니다</div>
+        <div className="modal-path">{path}</div>
+        <p className="modal-body">
+          <b>{baseName(path)}</b> 이(가) 다른 프로그램에서 수정됐습니다.
+          이 탭에는 저장하지 않은 변경이 있습니다. 어느 쪽을 남길까요?
+        </p>
+        <DiffView mine={mine} theirs={theirs} />
+        <div className="modal-buttons">
+          <button className="primary" onClick={onReload}>
+            바뀐 파일 불러오기
+            <span>내 편집 내용은 버립니다</span>
+          </button>
+          <button onClick={onOverwrite}>
+            내 내용으로 덮어쓰기
+            <span>밖에서 바뀐 내용은 사라집니다</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -23,7 +23,8 @@
     "@tiptap/extension-hard-break": "^3.31.4",
     "@tiptap/extension-link": "^3.31.4",
     "@tiptap/extension-code-block-lowlight": "^3.31.4",
-    "lowlight": "^3.3.0"
+    "lowlight": "^3.3.0",
+    "diff": "^5.2.0"
   },
   "peerDependencies": {
     "@md/editor-core": "*",

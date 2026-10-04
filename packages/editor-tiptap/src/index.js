@@ -1,3 +1,5 @@
 export { default as TiptapEditor } from './Editor.jsx'
+export { default as SplitEditor } from './SplitEditor.jsx'
+export { default as DiffView } from './DiffView.jsx'
 export { buildExtensions } from './extensions.js'
 export { IMAGE_DIR } from './images.js'

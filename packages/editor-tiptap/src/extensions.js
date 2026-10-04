@@ -11,6 +11,8 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { createLowlight, common } from 'lowlight'
 import { tableKeys } from './tableKeys.js'
 import { tableAlign } from './tableAlign.js'
+import { findExtension } from './find.js'
+import { wikiLinks } from './wikilinks.js'
 
 /*
  * 편집기 스키마. 노드 이름은 `md-bridge` 가 만드는 JSON 과 맞아야 한다.
@@ -71,9 +73,10 @@ export function buildExtensions(views = {}) {
     HardBreak.extend({
       addAttributes: () => ({ kind: hidden('backslash'), raw: hidden(null) }),
     }),
+    // target=_blank 를 붙이지 않는다 — 붙어 있으면 WebView2 가 Ctrl+누르기를 새 창으로 연다 (links.js)
     Link.extend({
       addAttributes() { return { ...this.parent?.(), title: { default: null } } },
-    }).configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+    }).configure({ openOnClick: false, autolink: true, linkOnPaste: true, HTMLAttributes: { target: null, rel: null } }),
     Table.extend({
       // 새로 만든 표는 줄 맞춤 없이 `| 칸 |` — 칸 하나 고쳐도 그 줄만 바뀐다
       addAttributes() { return { ...this.parent?.(), align: hidden([]), pipeAlign: hidden(false), padding: hidden(true) } },
@@ -84,6 +87,8 @@ export function buildExtensions(views = {}) {
     TableCell.extend({ content: 'paragraph' }),
     tableKeys,
     tableAlign,
+    findExtension,
+    wikiLinks,
     TextStyle, Color, BackgroundColor,
     image,
     codeBlock,
