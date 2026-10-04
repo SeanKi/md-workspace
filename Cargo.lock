@@ -1852,6 +1852,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "md-tiptap"
+version = "0.1.0"
+dependencies = [
+ "md-core",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

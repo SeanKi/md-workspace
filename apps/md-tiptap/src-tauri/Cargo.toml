@@ -1,0 +1,16 @@
+[package]
+name = "md-tiptap"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "md_tiptap_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+md-core = { workspace = true }

@@ -6,7 +6,8 @@
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./editor.css": "./src/editor.css"
+    "./editor.css": "./src/editor.css",
+    "./src/*": "./src/*"
   },
   "peerDependencies": {
     "lexical": "^0.48.0",

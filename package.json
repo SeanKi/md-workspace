@@ -7,6 +7,9 @@
     "editor": "npm run start -w md-editor",
     "sync-note": "npm run start -w md-sync-note",
     "build:editor": "npm run release -w md-editor",
-    "build:sync-note": "npm run release -w md-sync-note"
+    "build:sync-note": "npm run release -w md-sync-note",
+    "tiptap": "npm run start -w md-tiptap",
+    "tiptap:web": "npm run dev -w md-tiptap",
+    "test:roundtrip": "node packages/editor-tiptap/test/roundtrip.mjs"
   }
 }

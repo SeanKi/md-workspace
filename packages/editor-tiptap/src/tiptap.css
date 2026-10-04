@@ -1,0 +1,101 @@
+/* Tiptap 편집기 전용. 본문 조판(.prose 제목·목록·인용 …)은 editor-core/editor.css 를 함께 쓴다 */
+
+/* 툴바가 스크롤해도 붙어 있으려면 sticky 의 기준 상자가 본문 전체 높이여야 한다
+   (height:100% 금지 — CLAUDE.md) */
+.tt-editor { min-height: 100%; }
+.tt-toolbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+  padding: 5px 10px;
+  background: #fff; border-bottom: 1px solid #e5e5e5;
+  user-select: none;
+}
+.tt-toolbar button, .tt-toolbar select {
+  font: inherit; font-size: 13px; min-width: 30px; height: 30px; padding: 0 7px;
+  border: 1px solid transparent; border-radius: 5px; background: transparent; color: #333; cursor: pointer;
+}
+.tt-toolbar button:hover:not(:disabled) { background: #f0f2f5; }
+.tt-toolbar button.on { background: #e3ebfb; border-color: #c4d4f5; color: #1d4ed8; }
+.tt-toolbar button:disabled { color: #bbb; cursor: default; }
+.tt-toolbar select { border-color: #dcdfe4; background: #fff; }
+.tt-toolbar .sep { width: 1px; height: 20px; margin: 0 5px; background: #e1e4e8; }
+.tt-table-tools { display: inline-flex; align-items: center; gap: 2px; }
+.tt-table-tools button { font-size: 12px; color: #2563eb; }
+
+/* 색 단추 — Word 처럼 나뉜 단추 */
+.tt-color { position: relative; display: inline-flex; }
+.tt-color > button:first-child { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 6px; }
+.tt-color .glyph { line-height: 1; font-weight: 700; }
+.tt-color i { display: block; width: 16px; height: 3px; margin-top: 2px; border-radius: 1px; }
+.tt-color .drop { min-width: 16px !important; padding: 0 2px !important; font-size: 10px !important; }
+.tt-color-pop {
+  position: absolute; top: 34px; left: 0; z-index: 30;
+  display: grid; grid-template-columns: repeat(4, 24px); gap: 5px; padding: 7px;
+  background: #fff; border: 1px solid #dcdfe4; border-radius: 7px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+.tt-color-pop button { min-width: 0 !important; width: 24px; height: 24px !important; padding: 0 !important; border: 1px solid rgba(0,0,0,.12) !important; }
+.tt-color-pop .none { background: #fff; color: #888; font-size: 11px !important; }
+
+.prose.ProseMirror { outline: none; }
+.prose.ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #aaa; float: left; height: 0; pointer-events: none; }
+
+/* 표 — 진짜 ProseMirror 표라서 여러 칸 선택이 그냥 된다 (MDXEditor 때의 tableSelect.js 가 필요 없다) */
+.prose table { table-layout: auto; }
+.prose th, .prose td {
+  position: relative; min-width: 2.5em;
+  padding: 9px 13px; border: 1px solid #dfe3e8; vertical-align: top;
+}
+.prose th { background: #eaeff6; color: #1c2733; font-weight: 700; border-bottom: 2px solid #aab7c7; text-align: left; }
+.prose tbody tr:nth-child(even) td { background: #fafbfc; }
+.prose td > p, .prose th > p { margin: 0; }
+.prose .selectedCell::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: rgba(37, 99, 235, .14);
+}
+.prose .tableWrapper { overflow-x: auto; }
+
+/* 할 일 목록 */
+.prose ul[data-type="taskList"] { list-style: none; padding-left: .3em; }
+.prose ul[data-type="taskList"] li { display: flex; gap: .45em; align-items: flex-start; }
+.prose ul[data-type="taskList"] li > label { flex: none; margin-top: .3em; }
+.prose ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.prose ul[data-type="taskList"] li[data-checked="true"] > div { color: #8a929b; text-decoration: line-through; }
+/* 체크 상자가 없던 항목 (섞인 목록) — 상자 대신 글머리표 */
+.prose ul[data-type="taskList"] li[data-checked="null"] > label { position: relative; visibility: hidden; }
+.prose ul[data-type="taskList"] li[data-checked="null"] > label::after {
+  content: '•'; visibility: visible; position: absolute; left: 0; right: 0; top: -.3em; text-align: center;
+}
+
+/* 코드블록 */
+.md-code { margin: 1.1em 0; border: 1px solid #e4e8ed; border-radius: 7px; background: #f6f8fa; overflow: hidden; }
+.md-code-head { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-bottom: 1px solid #e4e8ed; background: #eef1f4; }
+.md-code-head select, .md-code-head button { font-size: 11px; padding: 2px 6px; border: 1px solid #d0d5db; border-radius: 4px; background: #fff; }
+.md-code pre { margin: 0; padding: 12px 14px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+.md-code pre code { background: none; border: 0; padding: 0; font-size: inherit; white-space: pre; }
+.md-code .md-code-hidden { display: none; }
+.md-code.is-mermaid { background: #fff; }
+
+/* 문법 강조 (lowlight → highlight.js 클래스) */
+.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #d73a49; }
+.hljs-string, .hljs-attr, .hljs-template-tag { color: #032f62; }
+.hljs-number, .hljs-literal { color: #005cc5; }
+.hljs-title, .hljs-section, .hljs-function { color: #6f42c1; }
+.hljs-tag, .hljs-name { color: #22863a; }
+.hljs-attribute, .hljs-variable { color: #e36209; }
+
+/* 원문 블록 — 위지윅으로 못 그리는 것(HTML 블록, 참조 정의, 각주, 앞머리 YAML …) */
+.prose pre.md-raw {
+  position: relative; margin: .8em 0; padding: 18px 12px 8px;
+  background: #fffbea; border: 1px dashed #e3cf7a; border-radius: 6px;
+  font-size: 12.5px; white-space: pre-wrap;
+}
+.prose pre.md-raw::before {
+  content: '원문 · ' attr(data-kind); position: absolute; top: 2px; right: 8px;
+  font: 10px sans-serif; color: #a08a2c;
+}
+.prose pre.md-raw code { background: none; border: 0; padding: 0; }
+.prose code.md-raw-inline { background: #fffbea; border-color: #e3cf7a; color: #7a5d00; font-size: .8em; }
+
+.prose img { max-width: 100%; border-radius: 6px; vertical-align: middle; }
+.prose img.ProseMirror-selectednode { outline: 3px solid #93b4f5; }

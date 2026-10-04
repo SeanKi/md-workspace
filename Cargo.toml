@@ -4,6 +4,7 @@ members = [
     "crates/md-core",
     "apps/md-editor/src-tauri",
     "apps/md-sync-note/src-tauri",
+    "apps/md-tiptap/src-tauri",
 ]
 
 [workspace.dependencies]
