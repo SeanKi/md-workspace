@@ -91,12 +91,39 @@ export function step(editor, dir) {
   reveal(editor)
 }
 
+/** 편집기를 담은 스크롤 상자 (`.editor-wrap`) — 본문만 굴린다. 페이지나 옆 패널은 건드리지 않는다 */
+function scroller(el) {
+  for (let p = el?.parentElement; p && p !== document.body; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p
+  }
+  return null
+}
+
+/**
+ * 찾은 자리로 굴린다. ProseMirror 의 `scrollIntoView()` 에 맡기면 **포커스가 찾기 칸에 있는 동안 굴러가지 않는다** —
+ * 몇 번째인지 숫자만 바뀌고 화면은 그대로라 "엉뚱한 데를 뒤지는" 것처럼 보였다.
+ * 그래서 그 자리의 좌표를 재서 본문 상자만 직접 굴린다. 이미 보이면 그대로 두고, 안 보이면 가운데쯤으로
+ */
+function scrollToMatch(view, pos) {
+  const box = scroller(view.dom)
+  if (!box) return
+  let c
+  try { c = view.coordsAtPos(pos) } catch { return }
+  const r = box.getBoundingClientRect()
+  // 위쪽에는 붙어 있는 도구 줄(sticky)이 가린다 — 그만큼은 안 보이는 것으로 친다
+  const bar = box.querySelector('.tt-toolbar')
+  const top = r.top + (bar ? bar.getBoundingClientRect().height : 0) + 8
+  if (c.top >= top && c.bottom <= r.bottom - 8) return
+  box.scrollTop += c.top - (r.top + box.clientHeight / 2)
+}
+
 function reveal(editor) {
   const s = findState(editor)
   const m = s.matches[s.index]
   if (!m) return
-  const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, m.from, m.to)).scrollIntoView()
-  editor.view.dispatch(tr)
+  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, m.from, m.to)))
+  scrollToMatch(editor.view, m.from)
 }
 
 export function clearFind(editor) {
