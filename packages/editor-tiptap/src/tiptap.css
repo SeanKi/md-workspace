@@ -227,3 +227,13 @@
 .prose .md-wikilink { color: #6d28d9; text-decoration: underline dotted; text-underline-offset: 3px; }
 body.md-ctrl .prose .md-wikilink { cursor: pointer; text-decoration-style: solid; }
 .tt-link-bubble .wiki-tag { flex: none; font-size: 10.5px; color: #6d28d9; background: #f3efff; border-radius: 4px; padding: 1px 5px; }
+
+/* Mermaid 그림 — 글자를 고르고 복사할 수 있다 (CodeBlockView.jsx codeBlockViewOptions) */
+.mermaid-view, .mermaid-view * { user-select: text; -webkit-user-select: text; }
+.mermaid-view { cursor: text; }
+/* 찾기 — 그림 안의 맞는 글자만 (find.js paintDiagrams). 다른 맞음은 노랑, 지금 자리는 반전(어두운 바탕 · 흰 글자) */
+.mermaid-view mark.tt-find-mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }
+.mermaid-view mark.tt-find-mark.cur { background: #1d4ed8; color: #fff; }
+.mermaid-view rect.tt-find-rect { fill: #fde68a; }
+.mermaid-view rect.tt-find-rect.cur { fill: #1d4ed8; }
+.mermaid-view tspan.tt-find-span.cur { fill: #fff; }

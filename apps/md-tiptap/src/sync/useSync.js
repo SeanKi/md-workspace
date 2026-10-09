@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { syncRepo, markDeleted, fetchAsset } from '@md/sync-core'
-import { isTauri, note } from '../core.js'
+import { isTauri, note, invoke } from '../core.js'
+
+const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
 import { storeFor, tauriFs, relOf } from './adapter.js'
 
 /*
@@ -25,6 +27,8 @@ const newDeviceId = () => `${Date.now().toString(36)}${Math.random().toString(36
 export default function useSync({ repos, settings, update, ready, beforeSync, afterSync }) {
   const [state, setState] = useState({})     // repoId → { busy, at, msg, error, catalog }
   const chains = useRef(new Map())           // repoId → 진행 중인 promise
+  const busyRepos = useRef(new Set())        // 지금 도는 저장소 — 폴더 감시 알림을 버릴 때 본다
+  const chainsBusy = (id) => busyRepos.current.has(id)
   const cb = useRef({})
   cb.current = { beforeSync, afterSync, settings }
 
@@ -68,6 +72,8 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
         note(`동기화 ${repo.name}${opts.full ? ' (전체 점검)' : opts.only ? ' (저장한 것만)' : ''}: ${cost}`)
         patch(repo.id, { busy: false, at: Date.now(), catalog: r.catalog, msg: bits.join(' ') || '맞음', cost })
         await cb.current.afterSync?.(repo, r)
+        // 방금 쓴 것(받아 온 문서)이 폴더 감시로 되돌아오는 알림은 버린다
+        quietUntil.current.set(repo.id, Date.now() + 2500)
         return r
       } catch (e) {
         const msg = String(e?.message ?? e)
@@ -77,6 +83,8 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
       }
     })
     chains.current.set(repo.id, next)
+    busyRepos.current.add(repo.id)
+    next.finally(() => { if (chains.current.get(repo.id) === next) busyRepos.current.delete(repo.id) }).catch(() => {})
     return next
   }, [])
 
@@ -167,6 +175,33 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
       document.removeEventListener('visibilitychange', onBack)
     }
   }, [ready, settings.deviceId, settings.syncSec, syncAll])
+
+  /*
+   * 저장소 폴더 감시 (md-core repo_watch.rs) — 앱이 떠 있는 동안 탐색기로 더하거나 지운 것을 몇 초 안에 맞춘다.
+   * 무엇이 바뀌었는지는 동기화가 기록과 견주어 알아낸다 (사라진 것 = 지운 것 → 원격에서도 지움).
+   * 동기화 자신이 쓴 것(받아 온 문서)도 알림이 오므로, 도는 중 · 막 끝난 뒤의 알림은 버린다 — 서로 부르며 돌지 않게
+   */
+  const quietUntil = useRef(new Map())   // repoId → 이 시각까지의 알림은 우리 것
+  const watchTimers = useRef(new Map())
+  useEffect(() => {
+    if (!ready || !settings.deviceId || !isTauri || IS_MOBILE) return
+    const remotes = repos.filter((r) => r.remote)
+    for (const r of remotes) invoke('watch_repo', { root: r.path }).catch((e) => note(`폴더 감시 실패 ${r.name}: ${e}`))
+    let off = null
+    let dead = false
+    import('@tauri-apps/api/event').then(({ listen }) => listen('repo-changed', (e) => {
+      const root = String(e.payload?.root ?? '').replace(/\\/g, '/').toLowerCase()
+      const repo = reposRef.current.find((r) => r.remote && r.path.replace(/\\/g, '/').toLowerCase() === root)
+      if (!repo || chainsBusy(repo.id) || Date.now() < (quietUntil.current.get(repo.id) ?? 0)) return
+      clearTimeout(watchTimers.current.get(repo.id))
+      watchTimers.current.set(repo.id, setTimeout(() => run(repo).catch(() => {}), 3000))
+    })).then((u) => { if (dead) u(); else off = u }).catch((e) => note(`폴더 감시 듣기 실패: ${e}`))
+    return () => {
+      dead = true
+      off?.()
+      for (const r of remotes) invoke('unwatch_repo', { root: r.path }).catch(() => {})
+    }
+  }, [ready, settings.deviceId, repos.map((r) => `${r.path}|${r.remote ?? ''}`).join('\n'), run])   // eslint-disable-line react-hooks/exhaustive-deps
 
   /** 받아 둔 문서를 열었다 — 그 문서만 바로 맞춘다 (다른 기기에서 고친 것이 열자마자 보이게) */
   const opened = useCallback((repo, abs) => {

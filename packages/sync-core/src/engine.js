@@ -38,6 +38,10 @@ import { merge3, firstContact } from './merge.js'
  */
 
 const STATE = '.mdsync'
+/** 한 번에 이만큼 넘게 사라지면 지운 게 아니라 폴더가 빠진 것으로 본다 — 개수와 비율이 둘 다 넘을 때 */
+const MASS_MIN = 20
+const MASS_RATIO = 0.5
+const tooMany = (gone, known) => gone > MASS_MIN && gone > known * MASS_RATIO
 /**
  * 원격 뿌리의 도장 파일 하나 — 어느 기기든 무엇을 올리면 새 값(아무 글자)으로 바꿔 쓴다.
  * 보통 맞추기는 이것만 읽어 지난번에 본 값과 같고 로컬도 그대로면 거기서 끝난다 (요청 한 번).
@@ -132,7 +136,7 @@ export async function markDeleted({ root, fs }, rels) {
 export async function syncRepo({ root, store, dav, fs, device, deviceName = device, author = deviceName, want = [], only = null, full = false, progress = () => {}, concurrency = 4 }) {
   store = store ?? dav
   const ctx = { root, store, fs, me: device, deviceName, author, abs: (rel) => `${root}/${rel}`, mine: `.mdsync/devices/${device}` }
-  const stat = { pulled: 0, pushed: 0, created: 0, deleted: 0, conflicts: 0, changedPaths: [], catalog: [], assetsUp: 0, failed: [] }
+  const stat = { pulled: 0, pushed: 0, created: 0, deleted: 0, conflicts: 0, changedPaths: [], catalog: [], assetsUp: 0, assetsDeleted: 0, failed: [] }
 
   // git 이 이 폴더를 커밋하지 않게 — 폴더 스스로를 무시시키는 .gitignore
   if ((await fs.read(ctx.abs(`${STATE}/.gitignore`))) == null) await fs.write(ctx.abs(`${STATE}/.gitignore`), '*\n')
@@ -170,13 +174,22 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   const local = new Map((await listDocs()).map((f) => [docKey(f.rel), f]))
   const wanted = new Set(want.map(docKey))
   const onlySet = only ? new Set(only.map(docKey)) : null
-  // 맞출 문서: 캐시에 있는 것 · 받으려는 것 · 트리에서 지운 것
-  const keys = new Set([...local.keys(), ...wanted, ...Object.keys(repoState.del)])
-  // 캐시에서 없어진 것(트리에서 지운 것이 아닌) — 지운 게 아니라 "받지 않은 것" 으로 돌아간다
-  for (const [p] of Object.entries(repoState.files)) {
+  // 맞춘 적 있는 문서가 로컬에서 사라졌다 = **지운 것**이다 — 트리에서든 탐색기에서든, 앱이 꺼져 있을 때든.
+  // 원격에서도 지운다. 예전에는 "받지 않은 것(☁)" 으로 돌려서, 지워도 원격에 남아 다시 받아졌다.
+  // 다만 **한꺼번에 많이** 사라졌으면 폴더를 옮겼거나 드라이브가 빠진 것일 수 있다 — 원격까지 쓸어 버리지 않게
+  // 지운 것으로 치지 않고 기록만 잊는다(☁ 로 남는다)
+  const vanished = Object.keys(repoState.files).filter((p) => {
     const k = docKey(p)
-    if (!local.has(k) && !wanted.has(k) && !repoState.del[k]) delete repoState.files[p]
+    return !local.has(k) && !wanted.has(k) && !repoState.del[k]
+  })
+  const massGone = tooMany(vanished.length, Object.keys(repoState.files).length)
+  for (const p of vanished) {
+    if (massGone) delete repoState.files[p]
+    else repoState.del[docKey(p)] = p
   }
+  if (massGone) stat.failed.push(`문서 ${vanished.length}개가 한꺼번에 사라져 지운 것으로 치지 않았습니다 — 폴더를 옮겼다면 되돌리고, 정말 지웠다면 트리에서 지우세요`)
+  // 맞출 문서: 캐시에 있는 것 · 받으려는 것 · 지운 것
+  const keys = new Set([...local.keys(), ...wanted, ...Object.keys(repoState.del)])
 
   let indexChanged = false
   const work = [...keys].filter((k) => !onlySet || onlySet.has(k) || wanted.has(k))
@@ -231,7 +244,41 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   // 기다리면 다른 기기에서는 글만 오고 그림은 빈 칸이다 (목록 걷기는 Rust 라 빠르다)
   if (fs.listAssets) {
     progress('그림 확인')
-    const assets = await listAssets()
+    let assets = await listAssets()
+
+    /*
+     * 지운 그림 · 첨부. 올린 적 있는데 로컬에서 사라졌으면 원격에서도 지우고, 내 index 의 `gone` 에 적는다
+     * (언제 지웠는지). 다른 기기는 그것을 보고 자기 사본을 치우고, 전체 점검에서도 **다시 올리지 않는다** —
+     * 안 그러면 그 기기에 남은 사본이 "원격에 없다" 로 보여 되살아난다. 문서와 같은 이유로 한꺼번에 많이
+     * 사라진 것은 지운 것으로 치지 않는다
+     */
+    const present = new Set(assets.map((a) => a.rel))
+    const lost = Object.keys(repoState.assets).filter((rel) => !present.has(rel))
+    if (tooMany(lost.length, Object.keys(repoState.assets).length)) {
+      for (const rel of lost) delete repoState.assets[rel]
+      stat.failed.push(`첨부 ${lost.length}개가 한꺼번에 사라져 지운 것으로 치지 않았습니다`)
+    } else {
+      for (const rel of lost) {
+        try {
+          await retry(() => store.del(rel))
+          myIndex.gone = { ...(myIndex.gone ?? {}), [rel]: Date.now() }
+          indexChanged = true
+          delete repoState.assets[rel]
+          stat.assetsDeleted++
+        } catch (e) { stat.failed.push(`${rel} 지우기: ${e?.message ?? e}`) }
+      }
+    }
+    // 남이 지운 것 — 지운 뒤로 고치지 않은 내 사본은 치운다 (fs.remove 는 앱에서 휴지통으로)
+    const goneAt = goneMap([myIndex, ...Object.values(indexes)])
+    if (fs.remove) {
+      for (const a of assets) {
+        const at = goneAt.get(a.rel)
+        if (at == null || a.mtime > at || !repoState.assets[a.rel]) continue   // 맞춘 적 없는 것 · 지운 뒤 고친 것은 둔다
+        try { await fs.remove(ctx.abs(a.rel)); delete repoState.assets[a.rel]; present.delete(a.rel) } catch { /* 다음 번에 */ }
+      }
+      assets = assets.filter((a) => present.has(a.rel))
+    }
+
     let todo = assets.filter((a) => {
       const p = repoState.assets[a.rel]
       return !p || p.size !== a.size || p.mtime !== a.mtime
@@ -246,7 +293,9 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
       await pool([...new Set(known.map((a) => dirOf(a.rel)))], concurrency, async (dir) => {
         there.set(dir, new Set((await store.list(dir)).filter((e) => !e.isDir).map((e) => e.name)))
       })
-      todo = todo.concat(known.filter((a) => !there.get(dirOf(a.rel))?.has(a.rel.split('/').pop())))
+      // 원격에 없는 것 — 단, 누가 지운 뒤로 고치지 않은 것은 되살리지 않는다
+      todo = todo.concat(known.filter((a) => !there.get(dirOf(a.rel))?.has(a.rel.split('/').pop())
+        && !(goneAt.get(a.rel) >= a.mtime)))
     }
     // 그림은 둘씩만 — 여럿을 한꺼번에 올리면 Koofr 가 연결을 끊었다 (os error 10053).
     // 하나가 실패해도 나머지는 올리고, 실패한 것은 적지 않았으니 다음 번에 그것만 다시 올린다
@@ -257,6 +306,8 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
         const b64 = await fs.readB64(ctx.abs(a.rel))
         await retry(() => store.putBinary(a.rel, b64, mimeOf(a.rel)))
         repoState.assets[a.rel] = { size: a.size, mtime: a.mtime }
+        // 지웠다가 같은 이름으로 다시 넣었다 — 지움 기록을 거둔다
+        if (myIndex.gone?.[a.rel]) { delete myIndex.gone[a.rel]; indexChanged = true }
         stat.assetsUp++
         // 중간중간 남긴다 — 수백 개를 올리다 앱을 닫아도 올린 것은 다시 올리지 않게
         if (stat.assetsUp % 20 === 0) await fs.write(ctx.abs(`${STATE}/repo.json`), JSON.stringify(repoState))
@@ -266,18 +317,20 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
     })
   }
 
+  await checkpoint()   // 그림 지움(gone)으로 index 가 바뀌었으면 도장보다 먼저 올린다
+
   // 무엇을 올렸으면(문서 판 · 그림) 도장을 새로 쓴다 — 다른 기기가 "바뀌었다" 를 요청 한 번으로 안다.
   // index 를 올린 **뒤에** 쓴다: 도장이 바뀐 것을 보고 왔는데 index 가 아직이면 안 된다.
   // 쓰기 직전에 다시 읽어 그새 남이 썼으면 내 것을 "본 것" 으로 적지 않는다 — 남의 고침을 못 보고 넘어가지 않게
   let seenStamp = stampAtStart
   // 도장이 아직 없으면(처음 붙인 원격) 지금 만든다 — 그래야 다음부터 빠른 길을 탄다
-  if (published || stat.assetsUp || stampAtStart == null) {
+  if (published || stat.assetsUp || stat.assetsDeleted || stampAtStart == null) {
     const now = await store.get(STAMP).catch(() => null)
     const mineStamp = newStamp(device)
     await store.put(STAMP, mineStamp, 'text/plain; charset=utf-8')
     seenStamp = now === stampAtStart ? mineStamp : null
   }
-  stat.catalog = catalogOf([myIndex, ...Object.values(indexes)], repoState)
+  stat.catalog = catalogOf([[device, myIndex], ...Object.entries(indexes)], repoState)
   // 실패한 것이 있거나, 저장한 문서만 본 것(only)이면 "다 봤다" 고 적지 않는다 — 다음에 제대로 본다
   repoState.stamp = stat.failed.length || onlySet ? null : seenStamp
   repoState.slowAt = Date.now()
@@ -291,17 +344,39 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
  * 원격에 살아 있는 문서 목록. 어느 기기든 마지막 판이 "지움" 이 아니면 살아 있다
  * (지우는 사이 다른 기기가 고쳤으면 고친 것이 산다 — 병합 규칙과 같다).
  */
-function catalogOf(indexes, repoState) {
-  const alive = new Map()
-  const dead = new Map()
+/** 기기들이 지운 첨부 — 경로 → 가장 늦게 지운 시각 */
+function goneMap(indexes) {
+  const m = new Map()
   for (const idx of indexes) {
-    for (const [key, e] of Object.entries(idx.docs ?? {})) {
-      if (e.deleted) dead.set(key, e.path)
-      else alive.set(key, e.path)
+    for (const [rel, at] of Object.entries(idx?.gone ?? {})) if (!(m.get(rel) >= at)) m.set(rel, at)
+  }
+  return m
+}
+
+function catalogOf(byDevice, repoState) {
+  // 문서마다 기기별 마지막 판
+  const heads = new Map()   // key → [{ dev, e }]
+  for (const [dev, idx] of byDevice) {
+    for (const [key, e] of Object.entries(idx?.docs ?? {})) {
+      if (!heads.has(key)) heads.set(key, [])
+      heads.get(key).push({ dev, e })
     }
   }
+  /*
+   * 살아 있나: 어느 기기의 "지움 아닌" 마지막 판이 **어떤 지움에도 덮이지 않았으면** 산다.
+   * 지움이 그 기기의 그 판(또는 더 나중 판)을 이미 보고 만든 것이면(seen) 그 판은 지움으로 대체된 것이다.
+   * 예전에는 지움을 덮인 것으로 보지 않아, 지운 기기에서도 다른 기기가 맞추기 전까지 ☁ 로 다시 보였고
+   * 열면 도로 받아졌다. seen 이 없는 옛 기록은 예전처럼 산 것으로 본다 (고친 것이 지움을 이긴다)
+   */
+  const out = []
   const cached = new Set(Object.keys(repoState.files).map(docKey))
-  return [...alive].filter(([key]) => !repoState.del[key]).map(([key, path]) => ({ path, cached: cached.has(key) }))
+  for (const [key, list] of heads) {
+    if (repoState.del[key]) continue
+    const kills = list.filter((h) => h.e.deleted)
+    const live = list.filter((h) => !h.e.deleted && !kills.some((k) => (k.e.seen?.[h.dev] ?? -1) >= h.e.rev))
+    if (live.length) out.push({ path: live[live.length - 1].e.path, cached: cached.has(key) })
+  }
+  return out
 }
 
 /**
@@ -432,7 +507,8 @@ async function syncDoc({ fs, store, abs, mine, me, deviceName, author }, key, f,
     st.pubSig = s
     st.pubHist = { ...(st.pubHist ?? {}), [rev]: { list: cur, seen: seenRevs } }
     for (const old of Object.keys(st.pubHist)) if (Number(old) <= rev - KEEP_PUB) delete st.pubHist[old]
-    published = cur ? { rev, path } : { rev, path, deleted: true }
+    // seen — 이 판이 다른 기기의 몇 번째 판까지 보고 만든 것인가. 목록(catalogOf)이 "지움이 저 판을 이미 봤나" 를 가린다
+    published = cur ? { rev, path, seen: seenRevs } : { rev, path, seen: seenRevs, deleted: true }
     stat.pushed++
   }
 

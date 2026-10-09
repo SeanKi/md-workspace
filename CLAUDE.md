@@ -399,5 +399,6 @@ v1.16.1 — Tiptap 판 **MDNotePad+** (`apps/md-tiptap`): WebDAV 동기화 · �
 `--sync` 전체 모드(하나만) · 원격 도장으로 빠른 맞추기 (`docs/Update_History.md`).
 v1.16.2 — 폰으로 저장소 넘기기(저장소별 QR · 이미 쓰는 주소에서 고르기) · 기본 앱으로 정하기.
 v1.16.3 — 본문 찾기가 찾은 자리로 굴러간다.
+v1.16.4 — 지운 것이 원격 · 다른 기기에서도 지워진다(되살아나지 않게) · 저장소 폴더 감시 · Mermaid 글자 고르기 · 찾기 반전.
 다음 우선순위는 **MDSyncNote 에 File Watcher 붙이기** (MD Editor 는 v0.5.0 에서 끝났다).
 자세한 것은 `docs/Implementation_Status.md` 마지막 절.

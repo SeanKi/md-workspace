@@ -41,7 +41,7 @@ export function memFs(files = {}) {
     },
     async read(p) { p = norm(p); return m.has(p) ? m.get(p) : null },
     async write(p, t) { p = norm(p); m.set(p, t); times.set(p, clock++) },
-    async remove(p) { p = norm(p); m.delete(p); times.delete(p) },
+    async remove(p) { p = norm(p); m.delete(p); bins.delete(p); times.delete(p) },
     /** 사용자가 편집기에서 고친 것처럼 */
     edit(p, t) { m.set(p, t); times.set(p, clock++) },
   }

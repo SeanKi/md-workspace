@@ -147,20 +147,58 @@ test('트리에서 지우면 다른 기기에서도 — 그 사이 고쳤으면 
   assert.equal(B.read('b.md'), '# B\n\nB 가 고침\n')
 })
 
-test('캐시에서만 없어진 것은 지운 게 아니다 — ☁ 로 돌아가고 다시 받을 수 있다', async () => {
+test('로컬에서 사라진 문서는 지운 것 — 탐색기로 지워도 원격과 다른 기기에서 지워지고 다시 받지 않는다', async () => {
   const w = world()
-  const A = w.dev('A', { 'a.md': DOC })
+  const A = w.dev('A', { 'a.md': DOC, 'b.md': '# B\n' })
   const B = w.dev('B')
   await A.sync(); await B.fetchAll()
-  B.evict('a.md')
+  B.evict('a.md')                                 // 탐색기에서 지움 (앱을 거치지 않음)
   const r = await B.sync()
-  assert.equal(r.pushed, 0)
-  assert.deepEqual(r.catalog.map((c) => [c.path, c.cached]), [['a.md', false]])
+  assert.equal(r.pushed, 1)                          // 지움을 올렸다
+  assert.deepEqual(r.catalog.map((c) => c.path), ['b.md'])   // ☁ 로도 남지 않는다
   const ra = await A.sync()
-  assert.equal(A.read('a.md'), DOC)
-  assert.equal(ra.deleted, 0)
-  await B.sync({ want: ['a.md'] })
-  assert.equal(B.read('a.md'), DOC)
+  assert.equal(ra.deleted, 1)
+  assert.equal(A.read('a.md'), undefined)           // 다른 기기에서도 지워진다
+  assert.equal(ra.catalog.length, 1)
+  const again = await B.sync({ full: true })
+  assert.equal(B.read('a.md'), undefined)           // 전체 점검도 되살리지 않는다
+  assert.equal(again.pulled, 0)
+})
+
+test('한꺼번에 많이 사라지면 지운 것으로 치지 않는다 — 폴더가 빠진 경우', async () => {
+  const w = world()
+  const files = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`n${i}.md`, `# ${i}\n`]))
+  const A = w.dev('A', files)
+  const B = w.dev('B')
+  await A.sync(); await B.fetchAll()
+  for (const f of Object.keys(files)) B.evict(f)    // 폴더째 사라짐
+  const r = await B.sync()
+  assert.equal(r.deleted, 0)
+  assert.ok(r.failed.some((m) => /한꺼번에/.test(m)))
+  await A.sync()
+  assert.equal(A.read('n0.md'), '# 0\n')           // 원격 · 다른 기기는 그대로
+})
+
+test('지운 그림은 원격에서도 지우고, 다른 기기의 사본도 치우고, 전체 점검이 되살리지 않는다', async () => {
+  const { fetchAsset } = await import('../src/engine.js')
+  const w = world()
+  const A = w.dev('A', { 'a.md': '# A\n\n![](.image/p.png)\n' })
+  A.fs.paste('/r/.image/p.png', 'iVBORw0KGgo=')
+  await A.sync()
+  const B = w.dev('B')
+  await B.fetchAll()
+  await fetchAsset({ root: '/r', store: w.server.client(), fs: B.fs }, '.image/p.png')
+  assert.ok(B.fs.bins.get('/r/.image/p.png'))
+
+  A.fs.bins.delete('/r/.image/p.png')               // A 에서 그림 지움
+  const ra = await A.sync()
+  assert.equal(ra.assetsDeleted, 1)
+  assert.equal(w.server.files.get('notes/.image/p.png'), undefined)
+
+  await B.sync()
+  assert.equal(B.fs.bins.get('/r/.image/p.png'), undefined)   // B 의 사본도 치움
+  await B.sync({ full: true })
+  assert.equal(w.server.files.get('notes/.image/p.png'), undefined)   // 되살리지 않는다
 })
 
 test('캐시를 새로 만들어도(같은 기기) 내 판 번호가 이어진다', async () => {

@@ -3,7 +3,7 @@ import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react'
 import { Step } from '@tiptap/pm/transform'
 import { parseMarkdown, bindOrigin, serializeDoc } from '@md/md-bridge'
 import { buildExtensions } from './extensions.js'
-import CodeBlockView from './CodeBlockView.jsx'
+import CodeBlockView, { codeBlockViewOptions } from './CodeBlockView.jsx'
 import { imageView, handleImagePaste, handleImageDrop } from './images.js'
 import { attachLinkClicks, watchCtrl } from './links.js'
 import LinkBubble from './LinkBubble.jsx'
@@ -33,7 +33,7 @@ const TiptapEditor = forwardRef(function TiptapEditor(
   cb.current = { onDirty, onSteps, onError, onLinkKey: () => setLinkReq((n) => n + 1) }
 
   const extensions = useMemo(() => buildExtensions({
-    codeBlock: () => ReactNodeViewRenderer(CodeBlockView),
+    codeBlock: () => ReactNodeViewRenderer(CodeBlockView, codeBlockViewOptions),
     image: imageView(() => ctxRef?.current),
   }), [ctxRef])
 

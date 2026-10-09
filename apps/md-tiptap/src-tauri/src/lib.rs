@@ -174,6 +174,8 @@ pub fn run() {
             md_core::sync_fs::list_md,
             md_core::sync_fs::stat_file,
             md_core::sync_fs::list_assets,
+            md_core::repo_watch::watch_repo,
+            md_core::repo_watch::unwatch_repo,
             md_core::sync_fs::asset_users,
             md_core::sync_fs::asset_to_trash,
             md_core::sync_fs::asset_restore,
