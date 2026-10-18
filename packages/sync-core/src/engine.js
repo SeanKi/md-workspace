@@ -59,7 +59,11 @@ async function localChanged(listDocs, listAssets, repoState) {
   if (Object.keys(repoState.del).length) return true
   const list = await listDocs()
   const known = new Set()
+  // 방향을 고르기 기다리는 문서 — 그대로면 바뀐 것이 아니다 (안 그러면 고를 때까지 매번 제대로 본다)
+  const pend = new Map(repoState.pending.map((p) => [p.rel, p]))
   for (const f of list) {
+    const p = pend.get(f.rel)
+    if (p && p.size === f.size && p.mtime === f.mtime) continue
     const seen = repoState.files[f.rel]
     if (!seen || seen.size !== f.size || seen.mtime !== f.mtime) return true
     known.add(f.rel)
@@ -108,13 +112,29 @@ async function pool(items, n, fn) {
 
 const loadRepoState = async (fs, root) => {
   const s = (await readJson(fs, `${root}/${STATE}/repo.json`)) ?? {}
-  return { files: s.files ?? {}, del: s.del ?? {}, assets: s.assets ?? {}, stamp: s.stamp ?? null, slowAt: s.slowAt ?? 0, catalog: s.catalog ?? null }
+  return {
+    files: s.files ?? {}, del: s.del ?? {}, assets: s.assets ?? {}, stamp: s.stamp ?? null, slowAt: s.slowAt ?? 0, catalog: s.catalog ?? null,
+    // 처음 만난 문서(양쪽에 있는데 함께 맞춘 적 없음)를 어떻게 할지 — 사용자가 고른 것 (key → 'up' | 'down' | 'merge')
+    choice: s.choice ?? {},
+    // 아직 못 고른 것 — 빠른 길에서도 화면에 계속 보이게 남겨 둔다
+    pending: s.pending ?? [],
+  }
 }
 
 /**
  * 트리에서 지웠다 — 다음 맞출 때 원격에서도 지운다. 파일을 지우기 **전에** 부른다.
  * 폴더를 지웠으면 그 아래 경로들을 다 넘긴다 (받지 않은 ☁ 문서도 포함 — catalog 에서).
  */
+/**
+ * 처음 만난 문서의 방향을 고른다 — 'up'(내 것이 이긴다) · 'down'(원격 것이 이긴다) · 'merge'(블록으로 합침).
+ * 다음 맞추기에서 그대로 하고 지운다
+ */
+export async function setContactChoice({ root, fs }, rels, mode) {
+  const rs = await loadRepoState(fs, root)
+  for (const rel of rels) rs.choice[docKey(rel)] = mode
+  await fs.write(`${root}/${STATE}/repo.json`, JSON.stringify(rs))
+}
+
 export async function markDeleted({ root, fs }, rels) {
   const rs = await loadRepoState(fs, root)
   for (const rel of rels) rs.del[docKey(rel)] = rel
@@ -130,17 +150,20 @@ export async function markDeleted({ root, fs }, rels) {
  * @param opts.want       지금 받아야 할 문서들의 경로 (열려는 것). 캐시에 없으면 받아 온다
  * @param opts.only       이 경로들만 맞춘다 (저장 직후처럼 가볍게). 없으면 캐시 전체
  * @param opts.full       전체 점검 — 바뀌지 않았다고 적힌 문서도 내용으로 견주고, 그림이 원격에 있는지 본다
+ * @param opts.contact    처음 만난 문서(양쪽에 있는데 함께 맞춘 적 없음)의 기본 처리 — 'ask'(고를 때까지 둔다) ·
+ *                        'merge' · 'up' · 'down'. 문서별로 고른 것(setContactChoice)이 먼저다
  * @returns {{ pulled, pushed, created, deleted, conflicts, changedPaths, catalog }}
  *          catalog = [{ path, cached }] — 원격에 살아 있는 문서 전부 (트리가 ☁ 를 그린다)
  */
-export async function syncRepo({ root, store, dav, fs, device, deviceName = device, author = deviceName, want = [], only = null, full = false, progress = () => {}, concurrency = 4 }) {
+export async function syncRepo({ root, store, dav, fs, device, deviceName = device, author = deviceName, want = [], only = null, full = false, contact = 'ask', progress = () => {}, concurrency = 4 }) {
   store = store ?? dav
-  const ctx = { root, store, fs, me: device, deviceName, author, abs: (rel) => `${root}/${rel}`, mine: `.mdsync/devices/${device}` }
-  const stat = { pulled: 0, pushed: 0, created: 0, deleted: 0, conflicts: 0, changedPaths: [], catalog: [], assetsUp: 0, assetsDeleted: 0, failed: [] }
+  const ctx = { root, store, fs, me: device, deviceName, author, abs: (rel) => `${root}/${rel}`, mine: `.mdsync/devices/${device}`, contact }
+  const stat = { pulled: 0, pushed: 0, created: 0, deleted: 0, conflicts: 0, changedPaths: [], catalog: [], assetsUp: 0, assetsDeleted: 0, failed: [], pending: [] }
 
   // git 이 이 폴더를 커밋하지 않게 — 폴더 스스로를 무시시키는 .gitignore
   if ((await fs.read(ctx.abs(`${STATE}/.gitignore`))) == null) await fs.write(ctx.abs(`${STATE}/.gitignore`), '*\n')
   const repoState = await loadRepoState(fs, root)
+  ctx.choice = repoState.choice
 
   // 폴더 걷기는 한 번만 — 큰 저장소는 이것이 동기화 시간의 대부분이다 (문서 321개 저장소: 9초). 도장 확인에서 걸은 것을 그대로 쓴다
   let docsListed = null
@@ -153,9 +176,11 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   progress('원격 확인')
   const stampAtStart = await store.get(STAMP).catch(() => null)
   if (!full && !want.length && stampAtStart != null && stampAtStart === repoState.stamp && repoState.catalog
+      && !Object.keys(repoState.choice).length   // 방향을 골랐으면 제대로 본다 — 고른 대로 해야 한다
       && Date.now() - repoState.slowAt < SLOW_EVERY_MS && !(await localChanged(listDocs, fs.listAssets && listAssets, repoState))) {
-    const cached = new Set(Object.keys(repoState.files).map(docKey))
+    const cached = new Set([...Object.keys(repoState.files), ...repoState.pending.map((p) => p.rel)].map(docKey))
     stat.catalog = repoState.catalog.map((c) => ({ path: c.path, cached: cached.has(docKey(c.path)) }))
+    stat.pending = repoState.pending.map((p) => p.rel)
     stat.fast = true
     progress('끝')
     return stat
@@ -192,6 +217,7 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
   const keys = new Set([...local.keys(), ...wanted, ...Object.keys(repoState.del)])
 
   let indexChanged = false
+  const pendingNow = new Map()   // key → { rel, size, mtime } — 이번에 방향을 기다리게 된 문서
   const work = [...keys].filter((k) => !onlySet || onlySet.has(k) || wanted.has(k))
   let done = 0
   await pool(work, concurrency, async (key) => {
@@ -210,6 +236,9 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
       stat.failed.push(`${f?.rel ?? key}: ${e?.message ?? e}`)
       return
     }
+    // 처음 만난 문서인데 방향을 아직 안 골랐다 — 손대지 않고, 기록도 하지 않는다 (고르면 다음에 한다)
+    if (r.pending) { stat.pending.push(r.path); pendingNow.set(key, { rel: r.path, size: f?.size, mtime: f?.mtime }); done++; return }
+    if (repoState.choice[key]) delete repoState.choice[key]   // 고른 대로 했다
     if (r.published) {
       myIndex.docs[key] = r.published
       indexChanged = true
@@ -223,6 +252,10 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
     if (++done % 25 === 0) progress(`문서 ${done}/${work.length}`)
   })
 
+  // 기다리는 목록 — 이번에 본 것은 새로, 이번에 안 본 것(only 등)은 지난 것을 그대로
+  const workSet = new Set(work)
+  repoState.pending = [...repoState.pending.filter((p) => !workSet.has(docKey(p.rel)) && local.has(docKey(p.rel))), ...pendingNow.values()]
+  if (!stat.pending.length) stat.pending = repoState.pending.map((p) => p.rel)
   let published = false
   // 문서까지 맞춘 것을 먼저 남긴다. 그림 올리기는 길다(저장소 하나에 수백 MB) — 도중에 끊기거나
   // 앱을 닫아도 문서 쪽은 처음부터 다시 하지 않게. 예전에는 끝에서만 남겨서, 그림 하나가 실패하면
@@ -330,7 +363,9 @@ export async function syncRepo({ root, store, dav, fs, device, deviceName = devi
     await store.put(STAMP, mineStamp, 'text/plain; charset=utf-8')
     seenStamp = now === stampAtStart ? mineStamp : null
   }
+  // 로컬에 있으면 받아 둔 것이다 — 방향을 기다리는 문서는 기록이 없어도 ☁ 가 아니다
   stat.catalog = catalogOf([[device, myIndex], ...Object.entries(indexes)], repoState)
+    .map((c) => (c.cached || !local.has(docKey(c.path)) ? c : { ...c, cached: true }))
   // 실패한 것이 있거나, 저장한 문서만 본 것(only)이면 "다 봤다" 고 적지 않는다 — 다음에 제대로 본다
   repoState.stamp = stat.failed.length || onlySet ? null : seenStamp
   repoState.slowAt = Date.now()
@@ -412,7 +447,7 @@ export function summarize(before, after) {
   return { added, removed, changed }
 }
 
-async function syncDoc({ fs, store, abs, mine, me, deviceName, author }, key, f, remote, indexes, myIndex, delReq, stat) {
+async function syncDoc({ fs, store, abs, mine, me, deviceName, author, contact, choice }, key, f, remote, indexes, myIndex, delReq, stat) {
   const stPath = abs(`${STATE}/docs/${key}.json`)
   const st = (await readJson(fs, stPath)) ?? emptyState()
   const myEntry = myIndex.docs[key]
@@ -446,9 +481,12 @@ async function syncDoc({ fs, store, abs, mine, me, deviceName, author }, key, f,
     if (entry.rev <= (st.from[d]?.rev ?? 0)) continue
     const head = JSON.parse((await store.get(`.mdsync/devices/${d}/docs/${key}.json`)) ?? 'null')
     if (!head) continue
-    stat.pulled++
     const theirs = head.deleted ? null : fromRemote(head.blocks)
     const base = baseFor(st, d, head, me)
+    // 처음 만났다(양쪽에 있는데 공통 조상이 없다) — 어느 쪽이 맞는지 모른다. 고른 것이 없고 기본이 'ask' 면 손대지 않는다
+    const mode = !base && cur && theirs ? (choice[key] ?? contact) : null
+    if (mode === 'ask') return { pending: true, path: f?.rel ?? path }
+    stat.pulled++
     const label = idx.name ?? d
     if (theirs) lists.push(theirs)
 
@@ -458,7 +496,17 @@ async function syncDoc({ fs, store, abs, mine, me, deviceName, author }, key, f,
     } else if (!cur) {
       cur = theirs
     } else {
-      const start = base ? { base, local: cur } : firstContact(cur, theirs)
+      // 처음 만난 문서 — 고른 방향대로. 'up': 원격을 조상으로 삼으면 내 것만 남는다 · 'down': 내 것을 조상으로 삼으면
+      // 원격 것만 남는다 · 'merge': 같은 블록만 짝짓고 다른 것은 양쪽 다 남긴다 (예전 그대로)
+      let start
+      if (base) start = { base, local: cur }
+      else {
+        const fc = firstContact(cur, theirs)
+        start = mode === 'up' ? { base: theirs, local: fc.local } : mode === 'down' ? { base: fc.local, local: fc.local } : fc
+        // 이웃 관계(빈 줄을 어디에 둘지)는 ID 를 맞춘 내 판으로 알아야 한다 — 맞추기 전 판으로는 내 블록 뒤에
+        // 상대 ID 가 붙은 블록이 오는 것을 몰라 끝에 빈 줄이 하나 더 생겼다
+        lists.push(fc.local)
+      }
       const m = merge3(start.base, start.local, theirs, { label })
       cur = m.list
       stat.conflicts += m.conflicts

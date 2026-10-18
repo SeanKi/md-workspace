@@ -16,7 +16,7 @@ const time = (t) => (t ? new Date(t).toLocaleTimeString([], { hour: '2-digit', m
 
 const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
 
-export default function RemoteLine({ repo, st, onSync, onSetup, onQr }) {
+export default function RemoteLine({ repo, st, onSync, onSetup, onQr, onPending }) {
   const stop = (fn) => (e) => { e.stopPropagation(); fn() }
   if (!repo.remote) {
     return (
@@ -33,7 +33,9 @@ export default function RemoteLine({ repo, st, onSync, onSetup, onQr }) {
       {st?.busy ? <span className="sync-msg">{st.msg || '맞추는 중…'}</span>
         : st?.error ? <span className="sync-err" title={st.error}>실패 — {st.error.slice(0, 40)}</span>
           : st?.at ? <span className="sync-msg">{time(st.at)} {st.msg}</span> : null}
-      {cloud ? <span className="sync-msg" title="원격에만 있고 아직 받지 않은 문서 — 열면 받는다">☁ {cloud}</span> : null}
+      {cloud ? <span className="sync-msg" title="원격에만 있고 아직 받지 않은 문서 — 열면 받는다 (폴더 우클릭 → 모두 받기)">☁ {cloud}</span> : null}
+      {/* 양쪽에 있는데 함께 맞춘 적 없는 문서 — 어느 쪽이 맞는지 골라야 맞춘다 */}
+      {st?.pending?.length ? <button className="sync-pending" onClick={stop(onPending)} title="양쪽에 있는데 함께 맞춘 적 없는 문서 — ⬆ 내 것 · ⬇ 원격 것 · ⇅ 합치기 를 고르세요">방향 고르기 {st.pending.length}</button> : null}
       <button onClick={stop(onSync)} disabled={st?.busy} title="지금 맞추기">⟳</button>
       <button onClick={stop(onSetup)} title="원격 설정">⚙</button>
       {/* 이 저장소 하나만 폰으로 — 폰의 원격 연결 · 가져오기에서 📷 로 읽는다 */}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { syncRepo, markDeleted, fetchAsset } from '@md/sync-core'
+import { syncRepo, markDeleted, fetchAsset, setContactChoice } from '@md/sync-core'
 import { isTauri, note, invoke } from '../core.js'
 
 const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
@@ -70,7 +70,9 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
         const kb = (n) => (n < 1024 ? `${n}B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)}KB`)
         const cost = `${((performance.now() - t0) / 1000).toFixed(1)}초 · 요청 ${meter.req} · ↑${kb(meter.up)} ↓${kb(meter.down)}${r.fast ? ' · 도장 그대로' : ''}`
         note(`동기화 ${repo.name}${opts.full ? ' (전체 점검)' : opts.only ? ' (저장한 것만)' : ''}: ${cost}`)
-        patch(repo.id, { busy: false, at: Date.now(), catalog: r.catalog, msg: bits.join(' ') || '맞음', cost })
+        // 처음 만난 문서(양쪽에 있는데 함께 맞춘 적 없음)는 방향을 고를 때까지 둔다 — 원격 줄에 "방향 고르기" 로 보인다
+        if (r.pending?.length) bits.push(`방향 고르기 ${r.pending.length}`)
+        patch(repo.id, { busy: false, at: Date.now(), catalog: r.catalog, msg: bits.join(' ') || '맞음', cost, pending: r.pending ?? [] })
         await cb.current.afterSync?.(repo, r)
         // 방금 쓴 것(받아 온 문서)이 폴더 감시로 되돌아오는 알림은 버린다
         quietUntil.current.set(repo.id, Date.now() + 2500)
@@ -209,5 +211,20 @@ export default function useSync({ repos, settings, update, ready, beforeSync, af
     if (repo?.remote && rel) run(repo, { only: [rel] }).catch(() => {})
   }, [run])
 
-  return { state, run, syncAll, fetch, saved, removed, opened, fetchImage }
+  /** 처음 만난 문서의 방향을 고르고 바로 맞춘다 — 'up' 내 것 · 'down' 원격 것 · 'merge' 블록으로 합침 */
+  const choose = useCallback(async (repo, rels, mode) => {
+    if (!rels.length) return
+    await setContactChoice({ root: repo.path, fs: tauriFs }, rels, mode)
+  }, [])
+
+  /** 원격에만 있는(☁) 문서를 한꺼번에 받는다 — 저장소 전체 또는 그 폴더 아래. 받을 개수를 돌려준다 */
+  const fetchAll = useCallback(async (repo, dirAbs) => {
+    const rel = dirAbs ? relOf(repo, dirAbs) : null
+    const under = (p) => !rel || p.toLowerCase().startsWith(rel.toLowerCase() + '/')
+    const want = (state[repo.id]?.catalog ?? []).filter((c) => !c.cached && under(c.path)).map((c) => c.path)
+    if (want.length) await run(repo, { want })
+    return want.length
+  }, [state, run])
+
+  return { state, run, syncAll, fetch, saved, removed, opened, fetchImage, choose, fetchAll }
 }

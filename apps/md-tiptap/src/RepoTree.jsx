@@ -8,7 +8,7 @@ import TreeMenu from './TreeMenu.jsx'
 import NameDialog from './NameDialog.jsx'
 import RemoteLine from './sync/RemoteLine.jsx'
 
-export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, onView, first, last, gitTick, onPathChanged, sync, onSync, onRemote, onQr }) {
+export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, onView, first, last, gitTick, onPathChanged, sync, onSync, onRemote, onQr, onFetchAll, onPending }) {
   // 원격이 붙은 저장소는 로컬이 캐시다 — 받지 않은 문서는 원격 목록(catalog)으로 ☁ 를 그린다
   const catalog = repo.remote ? (sync?.catalog ?? null) : null
   // 펼침 상태는 환경 파일에 남는다 (repo.open · repo.expanded) — 다음에 열 때 그대로
@@ -33,7 +33,9 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, o
   }
   const [roots, setRoots] = useState(null)
   const [error, setError] = useState(null)
-  const ops = useTreeOps({ onOpen, onPathChanged, remote: !!repo.remote })
+  const ops = useTreeOps({ onOpen, onPathChanged, remote: !!repo.remote, onFetchAll })
+  // ↻ 새로고침 — 트리를 통째로 다시 읽는다 (탐색기로 바꾼 것이 보이게). 펼침은 환경 파일에 있어 그대로 돌아온다
+  const [tick, setTick] = useState(0)
   const drag = useTreeDrag({ onDrop: ops.move })
   const rootVer = ops.versions[repo.path] ?? 0
 
@@ -46,7 +48,7 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, o
       .catch((e) => { setError(String(e)); setRoots([]) })
   }, [repo.path, repo.kind, catalog])
 
-  useEffect(() => { if (open) loadRoots() }, [open, rootVer, loadRoots])
+  useEffect(() => { if (open) loadRoots() }, [open, rootVer, loadRoots, tick])
 
   // 저장소 뿌리에서는 만들기만 할 수 있다 — 저장소 자체를 지우는 건 "제거(×)" 다
   const rootTarget = { path: repo.path, name: repo.name, is_dir: true, isRoot: true }
@@ -60,6 +62,8 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, o
         <span className="caret">{open ? '▾' : '▸'}</span>
         <span className="repo-name">{repo.name}</span>
         <span className="spacer" />
+        <button type="button" className="repo-refresh" title="새로고침 — 트리를 다시 읽고, 원격이 붙어 있으면 목록도 맞춘다"
+                onClick={(e) => { e.stopPropagation(); setTick((n) => n + 1); if (repo.remote) onSync?.() }}>↻</button>
         {/* 순서 바꾸기 — 끌기는 이미 "파일을 이 저장소로 옮기기" 라서 단추로 */}
         <span className="repo-move">
           <button type="button" disabled={first} title="위로"
@@ -72,14 +76,14 @@ export default function RepoTree({ repo, activePath, onOpen, onRemove, onMove, o
       </div>
       <div className="repo-path" title={repo.path}>{repo.path}</div>
       <GitLine repo={repo} tick={gitTick} />
-      <RemoteLine repo={repo} st={sync} onSync={onSync} onSetup={onRemote} onQr={onQr} />
+      <RemoteLine repo={repo} st={sync} onSync={onSync} onSetup={onRemote} onQr={onQr} onPending={onPending} />
       {ops.notice && <div className={'node ' + (ops.notice.ok ? 'ok' : 'err')}>{ops.notice.text}</div>}
       {open && (
         error ? <div className="node err">{error}</div>
         : roots === null ? <div className="node muted">읽는 중…</div>
         : roots.length === 0 ? <div className="node muted">(비어 있음) — 오른쪽 버튼으로 새 노트</div>
         : roots.map((e) => (
-            <TreeNode key={e.path} repo={repo} entry={e} depth={0} exp={exp}
+            <TreeNode key={`${tick}:${e.path}`} repo={repo} entry={e} depth={0} exp={exp}
                       activePath={activePath} onOpen={onOpen} ops={ops} drag={drag} catalog={catalog} />
           ))
       )}

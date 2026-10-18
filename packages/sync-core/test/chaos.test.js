@@ -24,7 +24,7 @@ async function run(seed) {
   const devs = ids.map((id, i) => {
     const files = i === 0 ? { '/r/x.md': start, '/r/y.md': start.replace(/문단/g, '줄') } : {}
     const fs = memFs(files)
-    return { id, fs, sync: () => syncRepo({ root: '/r', store: server.client(), fs, device: id, want: ['x.md', 'y.md'] }) }
+    return { id, fs, sync: () => syncRepo({ root: '/r', store: server.client(), fs, device: id, want: ['x.md', 'y.md'], contact: 'merge' }) }
   })
   for (const d of devs) await d.sync()
 

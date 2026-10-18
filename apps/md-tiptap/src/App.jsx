@@ -18,6 +18,7 @@ import { tidyImages } from './imageTrash.js'
 import useSync, { DEFAULT_SYNC_SEC } from './sync/useSync.js'
 import RemoteDialog from './sync/RemoteDialog.jsx'
 import { SendQr } from './sync/QrTransfer.jsx'
+import PendingDialog from './sync/PendingDialog.jsx'
 
 /*
  * MD Tiptap — MDSyncNote 의 껍데기(저장소 트리 · 탭 · 검색 · git · 자동 저장)에
@@ -80,7 +81,8 @@ export default function App() {
   // 동기화(useSync)는 아래에서 만든다. 그보다 위의 함수(openDoc · persist · onPathChanged)는 이 ref 로 부른다
   const syncRef = useRef(null)
   const [remoteDlg, setRemoteDlg] = useState(null)
-  const [sendQr, setSendQr] = useState(null)   // QR 로 보낼 저장소들 (저장소 줄의 QR 단추 — 하나씩)   // { mode: 'connect'|'clone', repo }
+  const [sendQr, setSendQr] = useState(null)
+  const [pendingDlg, setPendingDlg] = useState(null)   // 방향 고르기 — 저장소   // QR 로 보낼 저장소들 (저장소 줄의 QR 단추 — 하나씩)   // { mode: 'connect'|'clone', repo }
   const tabsRef = useRef(tabs)
   tabsRef.current = tabs
   const activeRef = useRef(active)
@@ -668,7 +670,9 @@ export default function App() {
                           sync={sync.state[r.id]}
                           onSync={() => sync.run(r).catch(() => {})}
                           onRemote={() => setRemoteDlg({ mode: 'connect', repo: r })}
-                          onQr={() => setSendQr([r])} />
+                          onQr={() => setSendQr([r])}
+                          onFetchAll={(dir) => sync.fetchAll(r, dir)}
+                          onPending={() => setPendingDlg(r)} />
               ))}
         </div>
       </aside>
@@ -735,6 +739,17 @@ export default function App() {
       </main>
 
       {sendQr && <SendQr repos={sendQr} onClose={() => setSendQr(null)} />}
+      {pendingDlg && (
+        <PendingDialog repo={pendingDlg} files={sync.state[pendingDlg.id]?.pending ?? []}
+                       onCancel={() => setPendingDlg(null)}
+                       onApply={async (by) => {
+                         const repo = pendingDlg
+                         for (const [mode, rels] of Object.entries(by)) await sync.choose(repo, rels, mode)
+                         setPendingDlg(null)
+                         setStatus('고른 방향으로 맞추는 중…')
+                         await sync.run(repo).catch(() => {})
+                       }} />
+      )}
       {remoteDlg && (
         <RemoteDialog mode={remoteDlg.mode} repo={remoteDlg.repo} known={repos.filter((r) => r.remote).map((r) => ({ remote: r.remote, user: r.user ?? '' }))}
                       onOk={onRemoteOk} onCancel={() => setRemoteDlg(null)}

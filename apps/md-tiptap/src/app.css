@@ -627,3 +627,22 @@ body.row-resizing, body.row-resizing * { cursor: row-resize !important; user-sel
 .modal .hint.bad, .qr-send .hint.bad { color: #b42318; }
 .remote-dialog .qr-scan { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px dashed #9db4ea; border-radius: 8px; background: #f3f7ff; }
 .remote-dialog .qr-scan button { font-size: 16px; padding: 10px; }
+
+/* 저장소 새로고침 ↻ — 순서 단추처럼 올렸을 때만 (터치 화면은 늘) */
+.repo-head .repo-refresh { font-size: 12px; line-height: 1; padding: 1px 5px; border: 0; border-radius: 3px; background: transparent; color: #8a919a; cursor: pointer; visibility: hidden; }
+.repo-head:hover .repo-refresh { visibility: visible; }
+@media (hover: none) { .repo-head .repo-refresh { visibility: visible; } }
+.repo-head .repo-refresh:hover { background: #d5dae1; color: #333; }
+/* 방향 고르기 — 눈에 띄게 */
+.repo-sync button.sync-pending { border-color: #f59e0b; background: #fffbeb; color: #92400e; font-weight: 600; }
+
+/* 방향 고르기 대화상자 */
+.pending-dialog { width: min(720px, 94vw); }
+.pending-dialog .pending-all { display: flex; gap: 6px; align-items: center; font-size: 12px; margin: 6px 0; flex-wrap: wrap; }
+.pending-dialog .pending-list { max-height: 50vh; overflow: auto; border: 1px solid #e4e8ed; border-radius: 6px; }
+.pending-dialog .pending-row { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #f0f2f5; flex-wrap: wrap; }
+.pending-dialog .pending-path { flex: 1 1 200px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.pending-dialog .pending-modes { display: flex; gap: 4px; flex-wrap: wrap; }
+.pending-dialog .pending-modes label { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; padding: 2px 6px; border: 1px solid #dfe3e8; border-radius: 4px; cursor: pointer; }
+.pending-dialog .pending-modes label.on { border-color: #2563eb; background: #e8eefc; }
+.pending-dialog .pending-modes input { margin: 0; }

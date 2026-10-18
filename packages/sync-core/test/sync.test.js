@@ -221,9 +221,37 @@ test('같은 파일을 따로 가진 두 기기가 처음 만나도 겹치지 �
   const w = world()
   const A = w.dev('A', { 'a.md': DOC })
   const B = w.dev('B', { 'a.md': DOC.replace('셋째 문단입니다.', '셋째 — B 만의 판.') })
-  await A.sync(); await B.sync(); await A.sync()
+  await A.sync(); await B.sync({ contact: 'merge' }); await A.sync()
   assert.equal(A.read('a.md'), B.read('a.md'))
   assert.equal((A.read('a.md').match(/첫 문단입니다/g) || []).length, 1)
+})
+
+test('처음 만난 문서 — 기본은 고를 때까지 손대지 않고 알린다 · ⬆ 내 것 · ⬇ 원격 것', async () => {
+  const { setContactChoice } = await import('../src/engine.js')
+  const w = world()
+  const A = w.dev('A', { 'a.md': DOC, 'b.md': '# 원격 판\n' })
+  const mineA = DOC.replace('셋째 문단입니다.', '셋째 — B 만의 판.')
+  const B = w.dev('B', { 'a.md': mineA, 'b.md': '# B 판\n' })
+  await A.sync()
+  const r = await B.sync()                                   // 기본 'ask'
+  assert.deepEqual(r.pending.sort(), ['a.md', 'b.md'])
+  assert.equal(B.read('a.md'), mineA)                        // 손대지 않았다
+  assert.ok(r.catalog.every((c) => c.cached))               // 로컬에 있으니 ☁ 로 세지 않는다
+  assert.equal(r.pushed, 0)
+  const again = await B.sync()                               // 고르기 전에는 계속 기다린다 (빠른 길에서도 목록 유지)
+  assert.deepEqual(again.pending.sort(), ['a.md', 'b.md'])
+  assert.ok(again.catalog.every((c) => c.cached))
+
+  await setContactChoice({ root: '/r', fs: B.fs }, ['a.md'], 'up')     // a: 내 것이 이긴다
+  await setContactChoice({ root: '/r', fs: B.fs }, ['b.md'], 'down')   // b: 원격 것이 이긴다
+  const r2 = await B.sync()
+  assert.deepEqual(r2.pending, [])
+  assert.equal(B.read('a.md'), mineA)
+  assert.equal(B.read('b.md'), '# 원격 판\n')
+  await A.sync()
+  assert.equal(A.read('a.md'), mineA)                        // A 도 B 의 판을 받았다
+  assert.equal(A.read('b.md'), '# 원격 판\n')
+  assert.equal((A.read('a.md').match(/셋째/g) || []).length, 1)   // 겹치지 않았다
 })
 
 test('only — 저장한 문서만 가볍게 올린다', async () => {

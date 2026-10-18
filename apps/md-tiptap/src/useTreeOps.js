@@ -17,7 +17,7 @@ const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
  * @param onPathChanged (옛경로, 새경로|null, 종류) — 열려 있는 문서가 영향을 받을 때와
  *        저장소에 커밋으로 남길 일이 생겼을 때 알린다. 종류는 rename · move · delete.
  */
-export default function useTreeOps({ onOpen, onPathChanged, remote = false }) {
+export default function useTreeOps({ onOpen, onPathChanged, remote = false, onFetchAll }) {
   const [versions, setVersions] = useState({})
   const [menu, setMenu] = useState(null)      // { x, y, target }
   const [dialog, setDialog] = useState(null)  // { kind, parent|target, value }
@@ -124,6 +124,13 @@ export default function useTreeOps({ onOpen, onPathChanged, remote = false }) {
     if (t.is_dir) {
       items.push({ label: '새 노트', run: () => setDialog({ kind: 'note', parent: t.path, value: '' }) })
       items.push({ label: '새 폴더', run: () => setDialog({ kind: 'dir', parent: t.path, value: '' }) })
+      // 원격에만 있는(☁) 문서를 이 폴더 아래 전부 받는다 — 열 때마다 받지 않고 미리 (오프라인 · 폰)
+      if (remote && onFetchAll) {
+        items.push({ label: '⬇ 원격 문서 모두 받기 (이 폴더 아래)', run: async () => {
+          const n = await onFetchAll(t.isRoot ? null : t.path)
+          say(n ? `원격 문서 ${n}개를 받는 중…` : '받을 문서가 없습니다 — 모두 받아 두었습니다', true)
+        } })
+      }
     }
 
     if (items.length) items.push({ sep: true })
@@ -141,7 +148,7 @@ export default function useTreeOps({ onOpen, onPathChanged, remote = false }) {
       items.push({ label: '삭제 (휴지통으로)', danger: true, run: () => remove(t) })
     }
     return items
-  }, [remove, startRename, openElsewhere, copyPath, onOpen])
+  }, [remove, startRename, openElsewhere, copyPath, onOpen, onFetchAll, remote, say])
 
   const dialogTitle = dialog && (
     dialog.kind === 'note' ? '새 노트'
