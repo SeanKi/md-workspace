@@ -8,6 +8,8 @@ Windows에서는 **MDNotePad+.exe 하나**로 두 가지 모드를 사용합니�
 
 **현재 Windows 버전: 1.16.5** · [최신 릴리스](https://github.com/SeanKi/md-workspace/releases/latest) · [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
 
+![MDNotePad+ 1.16.5 동기화 모드 — 저장소 검색과 Mermaid 문서 편집 화면](docs/images/mdnotepad-plus-1.16.5.png)
+
 ## 다운로드와 실행
 
 | 종류 | 다운로드 | 실행 방법 |
