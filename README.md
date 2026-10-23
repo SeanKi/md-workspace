@@ -9,6 +9,15 @@ Windows에서는 **MDNotePad+.exe 하나**로 두 가지 모드를 사용합니�
 **현재 Windows 버전: 1.16.5** · [최신 릴리스](https://github.com/SeanKi/md-workspace/releases/latest) · [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
 
 ![MDNotePad+ 1.16.5 동기화 모드 — 저장소 검색과 Mermaid 문서 편집 화면](docs/images/mdnotepad-plus-1.16.5.png)
+- 동기화 모드에서 Obsidian처럼 트리구조아래 노트를 생성하고 찾아보기 쉬움
+- Obsidian처럼 세부 기능이 강하진 않지만, 옵션으로 지원하는 것들을 기본으로 많이 포함했어요.
+  - webdav, git 과 같은 동기화 기능 처리가 기본으로 되어 있음
+- mermaid 표기 기본 지원
+- layout 기본적으로 이쁘게 만들어 놨어요.
+- WysWyg(위지윅) 기본 지원합니다. md format알 필요없습니다.
+- PDF 저장등을 기본 지원해요.
+- 문자 컬러설정 등도 기본으로 할 수 있어요.
+
 
 ## 다운로드와 실행
 
