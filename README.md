@@ -1,208 +1,170 @@
-# md-workspace
+# MDNotePad+
 
-마크다운을 **위지윅으로 편집**하는 Windows 데스크톱 앱 두 개.
-Tauri v2 + MDXEditor 로 만들었고, 설치본 없이 exe 하나로 돌아간다.
-Markdown Wysiwyg Editor. 
+**마크다운을 눈에 보이는 모습 그대로 편집하고, 필요할 때 PC와 Android에서 맞춰 쓰는 노트 앱입니다.**
 
-| 앱 | 무엇 | English |
+Windows에서는 **MDNotePad+.exe 하나**로 두 가지 모드를 사용합니다. 그냥 실행하면 문서 편집에 집중하는 **MDNotePad+**, `--sync`를 붙이면 폴더와 원격 저장소를 관리하는 **MDNotePad+(동기화 모드)**가 됩니다. Android에서는 동기화 모드로 실행됩니다.
+
+문서는 실제 `.md` 파일로 저장하므로 VS Code, Obsidian, GitHub 등에서도 열 수 있습니다.
+
+**현재 Windows 버전: 1.16.5** · [최신 릴리스](https://github.com/SeanKi/md-workspace/releases/latest) · [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
+
+## 다운로드와 실행
+
+| 종류 | 다운로드 | 실행 방법 |
 |---|---|---|
-| **MD Editor** | 단일 창 에디터. 탭 · 드래그앤드롭 · 탐색기 우클릭 연동 | Simple Editor + Tab + Drag&Drop File Load, Explorer context menu open |
-| **MDSyncNote** | 왼쪽 저장소 트리 + 오른쪽 노트. 자동 저장 · Git 자동 커밋 | Obsidian Type Note - It will contain sync function
+| **MDNotePad+ 1.16.5** | [MDNotePad+.exe](https://github.com/SeanKi/md-workspace/releases/download/v1.16.5/MDNotePad%2B.exe) | Windows에서 받아서 실행합니다. 설치가 필요 없습니다. |
+| **MDNotePad+(동기화 모드) 1.16.5** | 위와 같은 실행 파일 | 바로 가기의 대상 끝에 `--sync`를 붙입니다. |
+| **MDNotePad+ Android** | [MDNotePad+-arm64.apk (1.16.3)](https://github.com/SeanKi/md-workspace/releases/download/v1.16.3/MDNotePad%2B-arm64.apk) | 64비트 Android 기기에 APK를 설치합니다. |
 
-핵심 원칙은 하나다. **실제 `.md` 파일이 진실의 원천이다.**
-VS Code · Obsidian · GitHub 에서 그대로 열리는 평범한 마크다운만 쓴다.
-독자 포맷도, 잠금도 없다.
+Android에 현재 공개된 APK는 **1.16.3**입니다. 아래에서 설명하는 **1.16.4~1.16.5의 새 기능은 Windows 1.16.5 기준**이며, Android APK에 모두 반영된 것은 아닙니다.
 
----
+Windows는 **Windows 10/11 64비트와 WebView2 Runtime**이 필요합니다. Android APK는 **Android 7.0(API 24) 이상, arm64**용 시험 서명 빌드입니다.
 
-## 주요 기능
-
-### 편집기 (두 앱 공통)
-
-두 앱은 에디터 코어(`packages/editor-core`)를 **그대로 공유한다.**
-MDSyncNote 의 오른쪽 편집 화면은 MD Editor 와 완전히 같은 코드다.
-
-- **위지윅 편집** — `#` 을 치면 즉시 제목이 된다. 툴바에 굵게·목록·표·링크·코드블록·구분선
-- **읽기 좋은 조판** — 인쇄물처럼 폭을 잡고 흰 종이 위에 올린다. 표 머리글은
-  바탕색과 굵은 글씨로 구분하고, 줄무늬로 행을 놓치지 않게 한다
-- **본문 폭 선택** — 인쇄물처럼 가운데 고정 폭, 또는 화면 전체 폭. 설정에서 고르고
-  그 선택은 저장된다
-- **3모드 전환** — 위지윅 ↔ 마크다운 원본 ↔ 변경점 비교
-- **Mermaid 다이어그램** — 소스 편집과 오류 표시까지. 코드블록 렌더러를 교체해 붙였다
-- **코드블록 문법 강조** — txt · js · ts · python · bash · json · sql
-- **이미지 붙여넣기** — 클립보드 이미지를 자동 저장하고 링크를 넣는다.
-  저장 폴더는 설정에서 바꾼다 (`images` / `.` / `assets/img` …)
-- **표 셀 안 줄바꿈** — 표에서 **Alt+Enter**. 파일에는 `<br />` 로 적어 다른 도구에서도 줄이 나뉜다
-- **다른 도구가 만든 마크다운 열기** — MDXEditor 는 `<` 를 전부 JSX 로 읽어
-  `<br>` · `A <- B` · `p<0.05` · `<https://…>` · 문서에 붙여 넣은 XML 로그
-  (`<root>`, `<P_20260525161121.222>`) 에서 파싱이 실패한다. 열 때 자동으로 맞춰 준다.
-  진짜 HTML 태그(`<b>`, `<details>`, `<img>`)는 그대로 살리고,
-  코드블록과 인라인 코드 안은 건드리지 않는다
-
-> **이미지는 경로 두 개를 쓴다.** 마크다운 파일에는 상대 경로(`images/x.png`)를 적어
-> 다른 편집기와 호환되게 하고, 화면에 그릴 때만 data URI 로 바꾼다
-> (WebView2 가 `file://` 을 직접 못 읽는다). 마크다운이 data URI 로 오염되지 않는다.
-
-### MD Editor
-
-- **탭** — 여러 문서를 열고 전환. 탭별 수정 표시(●)와 닫기 확인
-- **드래그앤드롭** — 파일을 **창 상단(제목줄·탭바)** 에 놓으면 새 탭으로 열린다
-- **탐색기 우클릭 연동** — 설정 → Windows 연결 → 등록.
-  `.md` 우클릭에 "MD Editor로 열기" 가 생기고 연결 프로그램 목록에도 올라간다.
-  전부 `HKCU` 라 관리자 권한이 필요 없고 기존 `.md` 연결을 빼앗지 않는다.
-  설치 스크립트용으로 `md-editor.exe --register` / `--unregister` 도 있다
-- **외부 변경 감지** — 열어 둔 파일을 VS Code 등에서 고치면 알아챈다.
-  내 편집분이 없으면 조용히 다시 읽고, 있으면 **무엇이 달라졌는지 줄 단위로 보여주고**
-  바뀐 파일 불러오기 / 내 내용으로 덮어쓰기 중에 고르게 한다
-- **PDF로 저장** — 설정에서 누르면 인쇄 대화상자 없이 A4 PDF 가 만들어진다.
-  화면 폭 설정과 무관하게 항상 고정 폭으로, 툴바·표 손잡이는 빠지고 표 머리글
-  바탕색은 그대로 나온다
-- **단축키** — Ctrl+O 열기 · S 저장 · Shift+S 다른 이름으로 · T/N 새 탭 · W 닫기 · Tab 전환
-
-### MDSyncNote
-
-- **다중 저장소 트리** — 폴더 여러 개를 저장소로 등록. 펼칠 때만 읽는 지연 로딩
-- **저장소 전체 검색** — 사이드바에서 찾으면 등록된 저장소를 전부 훑는다.
-  색인을 만들지 않아 **조사가 붙어도 걸리고**("검색어"로 "검색어를") 결과가 낡지 않는다.
-  누르면 그 문서를 열고 찾은 자리로 데려간다
-- **파일·폴더 관리** — 트리에서 오른쪽 버튼 → 새 노트 · 새 폴더 · 이름 바꾸기 ·
-  삭제. **삭제는 휴지통으로** 가고, 같은 이름이 있으면 덮어쓰지 않는다
-- **자동 저장** — 기본 60초, 설정에서 조정. **변경이 있을 때만** 쓴다
-- **Git 초기화 버튼** — 저장소가 git 이 아니면 트리 머리에 뜬다. `git init` + 첫 커밋까지 한 번에
-- **저장할 때 자동 커밋** — 파일을 실제로 쓴 경우에만 커밋한다. 설정에서 끌 수 있다.
-  커밋 메시지는 `a.md 저장 (2026-08-30 19:48)`
-
-> **남의 저장소를 휩쓸지 않는다.** 등록한 폴더가 이미 다른 git 저장소의 하위
-> 폴더라면 새로 `init` 하지 않고 상위 저장소를 알려준다. `add`·`status`·`commit`
-> 은 모두 등록한 폴더 아래로 범위를 좁혀, 저장소 루트의 다른 작업물이 노트 커밋에
-> 딸려 들어가지 않는다.
-
----
-
-## 받아서 쓰기
-
-`release-out/` 의 **포터블 exe** 를 받아 실행하면 끝이다. 설치가 필요 없다.
-
-```
-MD-Editor-portable.exe     7.7 MB
-MDSyncNote-portable.exe    7.7 MB
-```
-
-- Windows 10 / 11 (x64). WebView2 는 Windows 11 에 내장돼 있어 따로 받을 것이 없다
-- 코드 서명이 없어 처음 실행할 때 SmartScreen 경고가 뜬다 → **추가 정보 → 실행**
-
----
-
-## 직접 빌드
-
-준비물은 Node.js 20+, Rust, Visual Studio C++ 빌드 도구.
-`build-portable.bat` 이 없는 것을 알아서 안내한다.
+Windows 동기화 모드 실행 예:
 
 ```bat
-npm install                  :: 루트에서 한 번 (두 앱 + 공유 패키지)
-
-run-md-editor.bat            :: 실행 (또는 npm run editor)
-run-md-sync-note.bat         :: 실행 (또는 npm run sync-note)
-
-build-portable.bat           :: 포터블 exe 두 개 (설치본 없이, 빠름)
-build-all.bat                :: 설치 프로그램(NSIS) + 포터블 exe
-deploy.bat [폴더]            :: 빌드한 exe 두 개를 쓰는 자리에 복사
-                             :: 인자를 생략하면 C:\utility\Markdown
+"C:\Apps\MDNotePad+\MDNotePad+.exe" --sync
 ```
 
-결과는 `release-out/` 에 모인다. 첫 빌드는 Rust 컴파일로 5~15분, 이후는 수 초.
+바로 가기를 두 개 만들어 이름을 `MDNotePad+`, `MDNotePad+(동기화 모드)`로 정하면 편리합니다. 두 바로 가기는 같은 실행 파일을 가리키며, 동기화 모드 쪽에만 `--sync`를 붙입니다.
 
-### 확인
+## MDNotePad+ — 문서 편집에 집중하는 모드
 
-```bat
-npm run build -w md-editor        :: 프론트엔드 컴파일
-npm run build -w md-sync-note
-cargo check --workspace           :: Rust
-cargo test -p md-sync-note        :: git 커맨드 테스트
-```
+실행 파일을 그냥 열거나, 연결된 `.md` 문서를 열면 시작합니다. 저장소 목록과 동기화 패널 없이 **탭과 편집 화면**을 사용합니다. 창을 여러 개 띄워 서로 다른 문서를 편집할 수 있습니다.
 
----
+- **위지윅·원본·변경점 비교**: 읽는 모습으로 편집하거나 마크다운 원문을 직접 고칩니다.
+- **글자와 문단 꾸미기**: 제목, 굵게, 기울임, 밑줄, 취소선, 글자색·배경색, 목록, 체크 목록, 인용, 링크를 지원합니다.
+- **표·코드·그림**: 표 편집, 코드블록 문법 강조, 이미지 삽입·붙여넣기, Mermaid 다이어그램을 지원합니다.
+- **여러 문서와 본문 찾기**: 탭으로 문서를 오가고, **Ctrl+F** 또는 **🔍**로 현재 문서에서 찾습니다. 찾은 위치가 화면 안에 보이도록 이동합니다.
+- **Windows 연동**: 설정의 **Windows 연결 → 등록**으로 탐색기 우클릭에 추가합니다. **기본 앱으로 정하기…**에서 `.md`를 여는 앱을 직접 선택할 수 있습니다.
+- **PDF 저장**: 설정의 **지금 문서를 PDF로**로 현재 문서를 A4 PDF로 저장합니다. Windows 전용 기능입니다.
 
-## 구조
+외부 편집기에서 파일이 바뀌면 변경을 감지합니다. 편집 중인 내용과 다르면 차이를 확인하고 불러올 내용이나 남길 내용을 고를 수 있습니다.
 
-```
-md-workspace/                    npm workspaces + cargo workspace
-├─ packages/editor-core/         공유 JS — 두 앱이 함께 쓰는 에디터
-│                                (MDXEditor 설정 · Mermaid · 이미지 · 표 줄바꿈)
-├─ crates/md-core/               공유 Rust — 파일 I/O 커맨드
-└─ apps/
-   ├─ md-editor/                 단일 창 에디터 (+ Windows 파일 연결)
-   └─ md-sync-note/              저장소 트리 + 노트 뷰 (+ git)
-```
+## MDNotePad+(동기화 모드) — 폴더와 여러 기기의 노트를 함께 관리
 
-공유 코드를 고치면 두 앱에 즉시 반영된다. `App.jsx` 는 공유하지 않는다 —
-두 앱의 레이아웃이 근본적으로 다르기 때문이다.
-cargo workspace 라 `target/` 을 공유해 두 번째 앱 빌드가 훨씬 빠르다.
+같은 실행 파일을 `--sync`로 실행하면 편집기에 **저장소 트리·전체 검색·자동 저장·Git 이력·WebDAV 동기화**가 더해집니다. 폴더를 여러 개 등록해 업무, 개인 메모, 프로젝트 문서를 나누어 관리할 수 있습니다.
 
----
-
-## 지금 상태
-
-전체 계획 대비 **약 35%**, Phase 1(Desktop Markdown Workspace)의 절반을 조금 넘겼다.
-
-| 다음에 할 것 | 왜 |
+| 기능 | 할 수 있는 일 |
 |---|---|
-| 파일/폴더 CRUD (생성·이름변경·삭제) | 트리가 읽기 전용이라 실사용이 안 된다 |
-| File Watcher | 외부 편집기와 공존하려면 필수 |
-| 커밋 이력 보기·되돌리기 | 커밋은 쌓이는데 꺼내 볼 수단이 없다 |
-| SQLite + FTS5 전문 검색 | 한국어는 trigram 이중 인덱스가 필요하다 |
-| 서버 저장소 · 동기화 | 위가 다 있어야 한다 |
+| **저장소 트리** | 폴더를 펼쳐 문서를 열고, 새 노트·새 폴더 만들기, 이름 바꾸기, 옮기기, 삭제를 합니다. 로컬 삭제는 휴지통을 사용합니다. |
+| **저장소 검색** | 등록한 저장소의 문서를 검색하고 결과를 눌러 해당 문서를 엽니다. |
+| **자동 저장·Git 커밋** | 설정한 주기로 바뀐 문서를 저장하고, Git 저장소에서는 변경을 커밋으로 남길 수 있습니다. Git 기능에는 Git 설치가 필요합니다. |
+| **WebDAV 연결** | 원격 저장소와 문서·이미지·첨부 파일을 맞추고 PC와 Android에서 이어서 사용합니다. WebDAV 서버나 계정이 필요합니다. |
+| **필요한 문서만 받기** | 원격에서 가져올 때 목록부터 받고, 문서를 열면 해당 문서를 내려받습니다. |
+| **변경 감지** | 앱이 실행 중일 때 저장소 폴더의 추가·삭제를 감지해 동기화합니다. |
 
-### 아직 안 되는 것
+동기화 모드는 한 창만 실행됩니다. 다시 실행하면 기존 동기화 창을 사용합니다. 단순 편집 모드 창은 별도로 열 수 있습니다.
 
-- 트리에서 드래그로 옮기기 (만들기·이름 바꾸기·삭제는 됨)
-- MDSyncNote 는 외부 파일 변경을 감지하지 못한다 (MD Editor 만 됨)
-- 서버 저장소, 기기 간 동기화
-- **편집해서 저장하면 표기가 조금 바뀐다** — `p.62~65` 가 `p.62~~65` 로,
-  `A_B` 가 `A\\_B` 로 다시 쓰인다(MDXEditor 직렬화 규칙). 마크다운 렌더러에서는
-  같게 보이지만, 이스케이프를 풀지 않는 PDF·인쇄 도구에서는 `\\` 가 그대로 보인다.
-  **열기만 하면 파일은 바뀌지 않는다**
-- 다크 모드
-- 탐색기에서 파일을 여러 개 열면 창이 여러 개 뜬다 (탭으로 합쳐지지 않는다)
-- 기본 앱 지정은 Windows 정책상 사용자가 직접 골라야 한다
-- **표를 여러 셀에 걸쳐 긁어 복사할 수 없다** — 셀 하나 안에서만 선택된다.
-  MDXEditor 가 표의 셀마다 독립된 편집기를 만들기 때문이고, 브라우저 선택은
-  그 경계를 넘지 못한다. 표를 통째로 복사하려면 **원본 모드**로 바꿔서 긁으면 된다
+### 처음 연결하는 순서
 
----
+1. PC에서 **MDNotePad+(동기화 모드)**를 실행하고 문서 폴더를 저장소로 등록합니다.
+2. 해당 저장소의 **원격 연결**에서 WebDAV 주소, 사용자, 비밀번호를 입력하고 연결을 확인합니다. 이미 원격에 있는 저장소를 받을 때는 **☁ 가져오기**를 사용합니다.
+3. 다른 PC나 Android에서도 같은 원격 저장소를 연결합니다. 다른 기기에서 고친 내용은 동기화 후 이어서 편집할 수 있습니다.
 
-## 문서
+WebDAV 동기화와 Git 커밋은 별개입니다. 기기 사이의 문서는 WebDAV로 맞추며, Git 커밋은 로컬 변경 이력을 남기는 기능입니다.
 
-- [CLAUDE.md](CLAUDE.md) — 개발 규약과 함정. 코드를 고치기 전에 읽을 것
-- [docs/Handoff.md](docs/Handoff.md) — 왜 이렇게 됐고 무엇이 아직 안 정해졌나
-- [docs/Implementation_Status.md](docs/Implementation_Status.md) — 무엇이 되고 무엇이 안 되나
-- [docs/Update_History.md](docs/Update_History.md) — 변경 이력 + 기술 검토
-- [docs/Windows_File_Association.md](docs/Windows_File_Association.md) — `.md` 우클릭 연동 (제약과 레지스트리 키)
-- [apps/md-editor/README.md](apps/md-editor/README.md) — MD Editor 사용법
+## 1.16.5에서 새로 할 수 있는 일
 
----
+### 처음 만난 문서의 방향 고르기
 
-## 만든 바탕 (Credits)
+같은 이름의 문서를 양쪽 기기가 따로 가지고 있고 함께 맞춘 기록이 없다면, 바로 덮어쓰지 않고 **방향 고르기**로 알려 줍니다. 문서마다 또는 한꺼번에 **내 것**, **원격 것**, **합치기**, **나중에**를 선택할 수 있습니다.
 
-이 프로젝트는 **처음부터 새로 짠 것이 아니라 남이 만든 좋은 것들 위에 올렸다.**
-특히 편집기 알맹이는 직접 구현하지 않았다.
+### 원격 문서 모두 받기와 새로고침
 
-| 가져다 쓴 것 | 라이선스 | 어디에 |
-|---|---|---|
-| [**MDXEditor**](https://github.com/mdx-editor/editor) | MIT | 편집기 본체. 위지윅 · 툴바 · 마크다운 왕복 · 표 · 3모드 전환이 전부 이것이다 |
-| [Lexical](https://github.com/facebook/lexical) | MIT | MDXEditor 가 쓰는 에디터 프레임워크. 표 셀 Alt+Enter 줄바꿈을 여기 노드로 붙였다 |
-| [Mermaid](https://github.com/mermaid-js/mermaid) | MIT | 다이어그램 렌더링 |
-| [Tauri v2](https://github.com/tauri-apps/tauri) | Apache-2.0 OR MIT | 데스크톱 셸 · 파일 대화상자 · 드래그앤드롭 이벤트 |
-| [React](https://github.com/facebook/react) | MIT | UI |
+폴더나 저장소 뿌리를 오른쪽 클릭하고 **원격 문서 모두 받기**를 선택하면 문서를 한꺼번에 내려받습니다. 저장소 머리의 **↻**는 폴더 트리와 원격 목록을 다시 읽습니다.
 
-이 저장소가 직접 만든 것은 그 위의 **껍데기와 이어붙임**이다 — 탭, 저장소 트리,
-파일 I/O Rust 커맨드, 이미지 저장 경로 규칙, Mermaid 플러그인 연결, 표 셀 줄바꿈
-플러그인, Windows 파일 연결, git 자동 커밋.
+### 화면 확대·축소
 
-각 라이브러리의 라이선스 전문은 `node_modules/<패키지>/LICENSE` 에 들어 있다.
+**Ctrl+마우스 휠**로 10%씩 확대·축소하고, **Ctrl+0**으로 100%로 돌아갑니다. 범위는 **75%~200%**이며 마지막 비율을 기기별로 기억합니다.
 
----
+### 1.16.4부터 포함된 개선
+
+- 동기화한 문서·첨부 파일을 로컬에서 지웠을 때 원격에 남거나 다시 받아지던 문제를 고쳤습니다.
+- 저장소 폴더의 변경을 감지해 동기화합니다.
+- Mermaid 그림 안의 글자를 선택할 수 있고, 본문 찾기의 결과도 그림 안에 표시합니다.
+
+## Android — PC의 노트를 휴대폰에서 이어 쓰기
+
+Android에서는 저장소와 원격 연결을 사용하는 **동기화 모드**로 시작합니다. Windows의 실행 옵션을 입력할 필요가 없습니다.
+
+### PC의 연결 설정을 QR로 가져오기
+
+1. PC의 동기화 모드에서 원격에 연결된 저장소 줄의 **QR** 단추를 누릅니다.
+2. Android의 **원격 연결** 또는 **☁ 가져오기**에서 **📷 PC 화면의 QR 읽기**를 누릅니다.
+3. 카메라로 PC 화면을 비추면 주소·사용자·비밀번호가 채워집니다. 연결할 저장소를 확인하고 진행합니다.
+
+QR에는 연결 비밀번호가 들어 있으므로 읽은 뒤 닫고, 다른 사람에게 공유하지 마세요.
+
+현재 공개 APK는 [1.16.3 릴리스](https://github.com/SeanKi/md-workspace/releases/tag/v1.16.3)의 `MDNotePad+-arm64.apk`입니다. 시험 서명 APK이므로 기기에서 해당 설치 경로의 **알 수 없는 앱 설치**를 허용해야 할 수 있습니다. Windows 전용인 PDF 저장과 탐색기 파일 연결 기능은 Android에 없습니다.
+
+## 자주 쓰는 단축키 — Windows
+
+| 단축키 | 동작 |
+|---|---|
+| **Ctrl+N** | 새 문서 |
+| **Ctrl+O** | 문서 열기 |
+| **Ctrl+S** | 저장 |
+| **Ctrl+Shift+S** | 다른 이름으로 저장 |
+| **Ctrl+W** | 현재 탭 닫기 |
+| **Ctrl+Tab / Ctrl+Shift+Tab** | 다음 / 이전 탭 |
+| **Ctrl+F** | 현재 문서에서 찾기 |
+| **Enter / Shift+Enter** | 찾기 칸에서 다음 / 이전 결과 |
+| **Ctrl+K** | 링크 넣기·고치기 |
+| **Ctrl+마우스 휠 / Ctrl+0** | 확대·축소 / 100%로 되돌리기 |
+
+## 설정과 문서 보관
+
+Windows 설정과 최근 문서 목록은 실행 파일 옆의 **MDTiptap.ini**에 저장합니다. 원격 비밀번호는 Windows 자격 증명 저장소를 사용하므로, INI 파일만 복사하면 다른 PC에 비밀번호까지 옮겨지는 것은 아닙니다.
+
+문서는 등록한 폴더의 실제 `.md` 파일입니다. 다른 편집기와 함께 사용할 수 있으며, 이미지는 문서에서 참조하는 파일로 보관합니다. 설정·기록을 별도 폴더에 두려면 `--home`을 사용합니다.
+
+```bat
+"C:\Apps\MDNotePad+\MDNotePad+.exe" --sync --home "C:\MyNotes\MDNotePadConfig"
+```
+
+## 직접 빌드하기
+
+현재 제품 소스는 **tiptap-spike** 브랜치에서 개발합니다. 아래 명령은 **1.16.5 태그**를 기준으로 합니다. 준비물은 Node.js와 npm, Rust, Visual Studio C++ 빌드 도구입니다.
+
+```bat
+git clone https://github.com/SeanKi/md-workspace.git
+cd md-workspace
+git checkout v1.16.5
+npm ci
+
+npm run build -w md-tiptap
+npm test -w @md/sync-core
+cargo test --workspace --locked
+
+cd apps\md-tiptap
+..\..\node_modules\.bin\tauri.cmd build --no-bundle
+```
+
+결과 파일은 저장소 루트의 `target\release\md-tiptap.exe`입니다. 배포할 때 이름을 `MDNotePad+.exe`로 바꿉니다. Android 빌드에는 JDK, Android SDK/NDK와 Android용 Rust 타깃이 추가로 필요합니다.
+
+## 개발 구조와 문서
+
+현재 MDNotePad+의 편집기는 **Tiptap/ProseMirror**, 앱 실행 환경은 **Tauri v2**, 화면은 **React**, 다이어그램은 **Mermaid**를 사용합니다. 마크다운 읽기·쓰기는 별도의 공유 패키지로 구성합니다.
+
+| 경로 | 역할 |
+|---|---|
+| `apps/md-tiptap` | 현재 MDNotePad+ 앱: 단순 모드·동기화 모드·Android |
+| `packages/editor-tiptap` | 현재 위지윅 편집기 |
+| `packages/md-bridge` | 마크다운 읽기·쓰기 |
+| `packages/sync-core` | WebDAV 동기화 |
+| `crates/md-core` | 파일 입출력·검색·변경 감지 등 공통 기능 |
+| `apps/md-editor`, `apps/md-sync-note` | 이전 MD Notepad·MDSyncNote 앱 소스 |
+
+이전 앱의 `MD-Notepad-portable.exe`, `MDSyncNote-portable.exe`는 과거 릴리스에서 받을 수 있습니다. **1.16.5 릴리스는 MDNotePad+.exe를 배포합니다.**
+
+- [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
+- [Windows 파일 연결 안내](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Windows_File_Association.md)
+- [빌드·릴리스 절차](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Release.md)
+- [개발 규약](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/CLAUDE.md)
 
 ## 라이선스
 
 [MIT](LICENSE) © 2026 SeanKi
+
+사용한 오픈소스의 라이선스는 각 프로젝트의 라이선스를 따릅니다. Tiptap/ProseMirror, Mermaid, React, Tauri와 그 밖의 의존성에 감사드립니다.
