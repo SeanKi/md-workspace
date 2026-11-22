@@ -6,19 +6,21 @@ Windows에서는 **MDNotePad+.exe 하나**로 두 가지 모드를 사용합니�
 
 문서는 실제 `.md` 파일로 저장하므로 VS Code, Obsidian, GitHub 등에서도 열 수 있습니다.
 
-**현재 Windows 버전: 1.16.5** · [최신 릴리스](https://github.com/SeanKi/md-workspace/releases/latest) · [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
+**현재 버전: 1.16.6** (Windows · Android) · [최신 릴리스](https://github.com/SeanKi/md-workspace/releases/latest) · [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
 
 ![MDNotePad+ 1.16.5 동기화 모드 — 저장소 검색과 Mermaid 문서 편집 화면](docs/images/mdnotepad-plus-1.16.5.png)
+
+> **화면별 사용 안내**: [docs/MDNotePad_Guide.md](docs/MDNotePad_Guide.md) — 저장소 검색("모든 저장소") · 문서 안 찾기 · 원격 줄 읽는 법 · 방향 고르기 · QR · 설정을 그림과 함께 설명합니다.
 
 ## 다운로드와 실행
 
 | 종류 | 다운로드 | 실행 방법 |
 |---|---|---|
-| **MDNotePad+ 1.16.5** | [MDNotePad+.exe](https://github.com/SeanKi/md-workspace/releases/download/v1.16.5/MDNotePad%2B.exe) | Windows에서 받아서 실행합니다. 설치가 필요 없습니다. |
-| **MDNotePad+(동기화 모드) 1.16.5** | 위와 같은 실행 파일 | 바로 가기의 대상 끝에 `--sync`를 붙입니다. |
-| **MDNotePad+ Android** | [MDNotePad+-arm64.apk (1.16.3)](https://github.com/SeanKi/md-workspace/releases/download/v1.16.3/MDNotePad%2B-arm64.apk) | 64비트 Android 기기에 APK를 설치합니다. |
+| **MDNotePad+ 1.16.6** | [MDNotePad+.exe](https://github.com/SeanKi/md-workspace/releases/download/v1.16.6/MDNotePad%2B.exe) | Windows에서 받아서 실행합니다. 설치가 필요 없습니다. |
+| **MDNotePad+(동기화 모드) 1.16.6** | 위와 같은 실행 파일 | 바로 가기의 대상 끝에 `--sync`를 붙입니다. |
+| **MDNotePad+ Android** | [MDNotePad+-arm64.apk (1.16.6)](https://github.com/SeanKi/md-workspace/releases/download/v1.16.6/MDNotePad%2B-arm64.apk) | 64비트 Android 기기에 APK를 설치합니다. |
 
-Android에 현재 공개된 APK는 **1.16.3**입니다. 아래에서 설명하는 **1.16.4~1.16.5의 새 기능은 Windows 1.16.5 기준**이며, Android APK에 모두 반영된 것은 아닙니다.
+Android APK도 **1.16.6**으로 Windows와 같은 기능을 담았습니다. Windows 전용인 PDF 저장 · 탐색기 연결은 Android에 없습니다.
 
 Windows는 **Windows 10/11 64비트와 WebView2 Runtime**이 필요합니다. Android APK는 **Android 7.0(API 24) 이상, arm64**용 시험 서명 빌드입니다.
 
@@ -50,7 +52,7 @@ Windows 동기화 모드 실행 예:
 | 기능 | 할 수 있는 일 |
 |---|---|
 | **저장소 트리** | 폴더를 펼쳐 문서를 열고, 새 노트·새 폴더 만들기, 이름 바꾸기, 옮기기, 삭제를 합니다. 로컬 삭제는 휴지통을 사용합니다. |
-| **저장소 검색** | 등록한 저장소의 문서를 검색하고 결과를 눌러 해당 문서를 엽니다. |
+| **저장소 검색** | 등록한 저장소의 문서를 검색하고 결과를 눌러 해당 문서를 엽니다. **모든 저장소**를 끄면 지금 열린 문서의 저장소만 찾습니다 ([안내](docs/MDNotePad_Guide.md#2-저장소-검색)). |
 | **자동 저장·Git 커밋** | 설정한 주기로 바뀐 문서를 저장하고, Git 저장소에서는 변경을 커밋으로 남길 수 있습니다. Git 기능에는 Git 설치가 필요합니다. |
 | **WebDAV 연결** | 원격 저장소와 문서·이미지·첨부 파일을 맞추고 PC와 Android에서 이어서 사용합니다. WebDAV 서버나 계정이 필요합니다. |
 | **필요한 문서만 받기** | 원격에서 가져올 때 목록부터 받고, 문서를 열면 해당 문서를 내려받습니다. |
@@ -65,6 +67,22 @@ Windows 동기화 모드 실행 예:
 3. 다른 PC나 Android에서도 같은 원격 저장소를 연결합니다. 다른 기기에서 고친 내용은 동기화 후 이어서 편집할 수 있습니다.
 
 WebDAV 동기화와 Git 커밋은 별개입니다. 기기 사이의 문서는 WebDAV로 맞추며, Git 커밋은 로컬 변경 이력을 남기는 기능입니다.
+
+## 1.16.6에서 새로 할 수 있는 일
+
+### 저장소 검색이 빨라졌습니다 — SQLite 검색 색인
+
+저장소 검색이 문서 글을 미리 담아 둔 **SQLite 검색 색인(FTS5)**에서 찾습니다. 예전에는 찾을 때마다 모든 문서를 디스크에서 다시 읽어, 문서가 많은 저장소 여러 개를 찾으면 수십 초가 걸리기도 했습니다.
+
+- 앱이 뜰 때 뒤에서 색인을 맞춰 두고, 그 뒤로는 **바뀐 문서만** 다시 읽습니다. 다른 편집기에서 고친 문서도 찾을 때 확인해 결과를 고쳐 보여 줍니다
+- 예시 — 저장소 9개에서 "통신" 찾기: 881ms → **149ms**, 결과는 같습니다 (처음 색인을 만들 때 한 번 수 초)
+- 색인은 `%LOCALAPPDATA%\MdWorkspace\search-index.sqlite` 에 둡니다 — 문서 글의 사본이라 지워도 다음 검색 때 다시 만듭니다. 저장소 폴더에는 아무것도 쓰지 않습니다
+- SQLite는 실행 파일 안에 들어 있어 따로 설치할 것이 없습니다. 색인을 쓸 수 없는 경우에는 예전 방식으로 찾고 결과 위에 **· 직접 훑음**이 붙습니다
+- **모든 저장소**를 끄면 지금 열린 문서가 든 저장소만 찾습니다. 경로 표기(`/`·`\`·대소문자)가 달라 결과가 비던 문제를 고쳤고, 열린 문서가 저장소 밖이면 그렇다고 알려 줍니다
+
+### 화면별 사용 안내
+
+[docs/MDNotePad_Guide.md](docs/MDNotePad_Guide.md)에 화면 그림 11장으로 검색 · 찾기 · 원격 줄 읽는 법 · 방향 고르기 · QR · 설정을 설명했습니다.
 
 ## 1.16.5에서 새로 할 수 있는 일
 
@@ -98,7 +116,7 @@ Android에서는 저장소와 원격 연결을 사용하는 **동기화 모드**
 
 QR에는 연결 비밀번호가 들어 있으므로 읽은 뒤 닫고, 다른 사람에게 공유하지 마세요.
 
-현재 공개 APK는 [1.16.3 릴리스](https://github.com/SeanKi/md-workspace/releases/tag/v1.16.3)의 `MDNotePad+-arm64.apk`입니다. 시험 서명 APK이므로 기기에서 해당 설치 경로의 **알 수 없는 앱 설치**를 허용해야 할 수 있습니다. Windows 전용인 PDF 저장과 탐색기 파일 연결 기능은 Android에 없습니다.
+현재 공개 APK는 [1.16.6 릴리스](https://github.com/SeanKi/md-workspace/releases/tag/v1.16.6)의 `MDNotePad+-arm64.apk`입니다. 시험 서명 APK이므로 기기에서 해당 설치 경로의 **알 수 없는 앱 설치**를 허용해야 할 수 있습니다. Windows 전용인 PDF 저장과 탐색기 파일 연결 기능은 Android에 없습니다.
 
 ## 자주 쓰는 단축키 — Windows
 
@@ -127,12 +145,12 @@ Windows 설정과 최근 문서 목록은 실행 파일 옆의 **MDTiptap.ini**�
 
 ## 직접 빌드하기
 
-현재 제품 소스는 **tiptap-spike** 브랜치에서 개발합니다. 아래 명령은 **1.16.5 태그**를 기준으로 합니다. 준비물은 Node.js와 npm, Rust, Visual Studio C++ 빌드 도구입니다.
+현재 제품 소스는 **tiptap-spike** 브랜치에서 개발합니다. 아래 명령은 **1.16.6 태그**를 기준으로 합니다. 준비물은 Node.js와 npm, Rust, Visual Studio C++ 빌드 도구입니다.
 
 ```bat
 git clone https://github.com/SeanKi/md-workspace.git
 cd md-workspace
-git checkout v1.16.5
+git checkout v1.16.6
 npm ci
 
 npm run build -w md-tiptap
@@ -158,7 +176,7 @@ cd apps\md-tiptap
 | `crates/md-core` | 파일 입출력·검색·변경 감지 등 공통 기능 |
 | `apps/md-editor`, `apps/md-sync-note` | 이전 MD Notepad·MDSyncNote 앱 소스 |
 
-이전 앱의 `MD-Notepad-portable.exe`, `MDSyncNote-portable.exe`는 과거 릴리스에서 받을 수 있습니다. **1.16.5 릴리스는 MDNotePad+.exe를 배포합니다.**
+이전 앱의 `MD-Notepad-portable.exe`, `MDSyncNote-portable.exe`는 과거 릴리스에서 받을 수 있습니다. **1.16.6 릴리스는 MDNotePad+.exe와 Android APK를 배포합니다.**
 
 - [변경 이력](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Update_History.md)
 - [Windows 파일 연결 안내](https://github.com/SeanKi/md-workspace/blob/tiptap-spike/docs/Windows_File_Association.md)

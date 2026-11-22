@@ -22,6 +22,7 @@ pub mod dav;
 pub mod diag;
 pub mod pdf;
 pub mod search;
+pub mod search_index;
 pub mod sync_fs;
 pub mod repo_watch;
 pub mod watcher;

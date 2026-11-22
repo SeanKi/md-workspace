@@ -646,3 +646,5 @@ body.row-resizing, body.row-resizing * { cursor: row-resize !important; user-sel
 .pending-dialog .pending-modes label { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; padding: 2px 6px; border: 1px solid #dfe3e8; border-radius: 4px; cursor: pointer; }
 .pending-dialog .pending-modes label.on { border-color: #2563eb; background: #e8eefc; }
 .pending-dialog .pending-modes input { margin: 0; }
+/* 대화상자 아래 안내 글 — 본문보다 작게 */
+.pending-dialog .hint { font-size: 12px; color: #6b7280; margin-top: 8px; }

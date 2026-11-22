@@ -128,6 +128,8 @@ pub fn run() {
                 if let Ok(dir) = _app.path().app_data_dir() {
                     // 동기화 비밀번호도 앱만 읽는 이 폴더에 (Windows 는 자격 증명 관리자 — cred.rs)
                     md_core::cred::set_store_dir(dir.clone());
+                    // 저장소 찾기 색인도 앱만 쓰는 이 폴더에 (search_index.rs)
+                    md_core::search_index::set_index_dir(dir.clone());
                     config::set_dir(dir);
                 }
             }
@@ -145,6 +147,7 @@ pub fn run() {
             md_core::commands::delete_path,
             md_core::commands::open_external,
             md_core::search::search_repo,
+            md_core::search_index::search_warm,
             md_core::watcher::watch_file,
             md_core::watcher::unwatch_file,
             md_core::pdf::save_pdf,

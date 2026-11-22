@@ -40,7 +40,7 @@ pub struct Hit {
 }
 
 /// 파일 수정 시각. 못 읽으면 0 — 검색은 계속되어야 한다
-fn modified_at(meta: &std::fs::Metadata) -> i64 {
+pub(crate) fn modified_at(meta: &std::fs::Metadata) -> i64 {
     meta.modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
@@ -58,6 +58,8 @@ pub struct SearchResult {
     /// 상한에 걸려 잘렸는가
     pub truncated: bool,
     pub ms: u64,
+    /// 색인으로 찾았는가 (아니면 폴더를 직접 훑었다)
+    pub indexed: bool,
 }
 
 fn is_markdown(p: &Path) -> bool {
@@ -112,8 +114,76 @@ fn score_of(name_hit: bool, line: &str) -> i32 {
     s
 }
 
+/// 한 파일의 글에서 맞은 줄들을 `hits` 에 더한다. 직접 찾기와 색인 찾기가 같이 쓴다 — 결과 모양이 같아야 한다.
+/// 더한 개수를 돌려준다 (0 이면 이 파일은 맞지 않았다)
+pub(crate) fn file_hits(path: &str, name: &str, modified: i64, text: &str, needle: &str, hits: &mut Vec<Hit>) -> usize {
+    let name_hit = name.to_lowercase().contains(needle);
+    let mut in_file = 0usize;
+    for (i, line) in text.lines().enumerate() {
+        if in_file >= PER_FILE || hits.len() >= TOTAL {
+            break;
+        }
+        let lower = line.to_lowercase();
+        let Some(byte_at) = lower.find(needle) else { continue };
+        // 글자 수 기준으로 바꿔야 화면에서 색칠할 자리가 맞는다
+        let at = lower[..byte_at].chars().count();
+        let len = needle.chars().count();
+        let (text_line, start, end) = preview(line, at, len);
+        hits.push(Hit {
+            path: path.to_string(),
+            name: name.to_string(),
+            line_no: i + 1,
+            line: text_line,
+            start,
+            end,
+            score: score_of(name_hit, line),
+            modified,
+        });
+        in_file += 1;
+    }
+    // 본문에는 없어도 파일 이름이 맞으면 그 자체로 결과다
+    if in_file == 0 && name_hit {
+        hits.push(Hit {
+            path: path.to_string(),
+            name: name.to_string(),
+            line_no: 1,
+            line: text.lines().next().unwrap_or("").to_string(),
+            start: 0,
+            end: 0,
+            score: score_of(true, ""),
+            modified,
+        });
+        in_file += 1;
+    }
+    in_file
+}
+
+pub(crate) fn sort_hits(hits: &mut [Hit]) {
+    hits.sort_by(|a, b| {
+        b.score
+            .cmp(&a.score)
+            .then(a.path.cmp(&b.path))
+            .then(a.line_no.cmp(&b.line_no))
+    });
+}
+
+pub(crate) const LIMITS: (u64, usize) = (MAX_BYTES, TOTAL);
+
+/// 저장소 찾기. 먼저 **색인**(search_index.rs — SQLite FTS5)으로 찾고, 색인을 못 쓰면(파일을 못 만듦 · 깨짐 ·
+/// FTS5 없음) 예전처럼 **폴더를 직접 훑는다.** 색인은 지워도 되는 사본이라, 무슨 일이 있어도 찾기는 된다
 #[tauri::command(async)]
-pub fn search_repo(root: String, query: String) -> Result<SearchResult, String> {
+pub fn search_repo(app: tauri::AppHandle, root: String, query: String) -> Result<SearchResult, String> {
+    if query.trim().is_empty() {
+        return Err("찾을 말을 입력하세요.".into());
+    }
+    if let Some(r) = crate::search_index::search(&app, &root, &query) {
+        return Ok(r);
+    }
+    scan_search(root, query)
+}
+
+/// 색인 없이 폴더를 훑어 찾는다 — 색인을 못 쓸 때의 길이자, 색인이 맞는지 견줄 기준
+pub fn scan_search(root: String, query: String) -> Result<SearchResult, String> {
     let started = Instant::now();
     let needle = query.trim().to_lowercase();
     if needle.is_empty() {
@@ -141,68 +211,23 @@ pub fn search_repo(root: String, query: String) -> Result<SearchResult, String> 
         let modified = modified_at(&meta);
         let Ok(text) = std::fs::read_to_string(path) else { continue };
         scanned += 1;
-
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        let name_hit = name.to_lowercase().contains(&needle);
-
-        let mut in_file = 0usize;
-        for (i, line) in text.lines().enumerate() {
-            if in_file >= PER_FILE || hits.len() >= TOTAL {
-                break;
-            }
-            let lower = line.to_lowercase();
-            let Some(byte_at) = lower.find(&needle) else { continue };
-            // 글자 수 기준으로 바꿔야 화면에서 색칠할 자리가 맞는다
-            let at = lower[..byte_at].chars().count();
-            let len = needle.chars().count();
-            let (text_line, start, end) = preview(line, at, len);
-            hits.push(Hit {
-                path: path.to_string_lossy().to_string(),
-                name: name.clone(),
-                line_no: i + 1,
-                line: text_line,
-                start,
-                end,
-                score: score_of(name_hit, line),
-                modified,
-            });
-            in_file += 1;
-        }
-        // 본문에는 없어도 파일 이름이 맞으면 그 자체로 결과다
-        if in_file == 0 && name_hit {
-            hits.push(Hit {
-                path: path.to_string_lossy().to_string(),
-                name: name.clone(),
-                line_no: 1,
-                line: text.lines().next().unwrap_or("").to_string(),
-                start: 0,
-                end: 0,
-                score: score_of(true, ""),
-                modified,
-            });
-            in_file += 1;
-        }
-        if in_file > 0 {
+        if file_hits(&path.to_string_lossy(), &name, modified, &text, &needle, &mut hits) > 0 {
             matched_files += 1;
         }
     }
 
-    hits.sort_by(|a, b| {
-        b.score
-            .cmp(&a.score)
-            .then(a.path.cmp(&b.path))
-            .then(a.line_no.cmp(&b.line_no))
-    });
-
+    sort_hits(&mut hits);
     Ok(SearchResult {
         hits,
         files: matched_files,
         scanned,
         truncated,
         ms: started.elapsed().as_millis() as u64,
+        indexed: false,
     })
 }
 
@@ -234,7 +259,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
-        let r = search_repo(root, "검색어".into()).unwrap();
+        let r = scan_search(root, "검색어".into()).unwrap();
         let m = r.hits[0].modified;
         assert!(m > 0, "수정 시각을 읽지 못했다");
         assert!((now - m).abs() < 60, "방금 만든 파일인데 {m} 이 나왔다");
@@ -244,7 +269,7 @@ mod tests {
     fn 조사가_붙어도_찾는다() {
         // 색인을 쓰지 않는 이유가 이것이다
         let root = make("josa", &[("a.md", "# 제목\n검색어를 찾는다\n관계없는 줄\n")]);
-        let r = search_repo(root, "검색어".into()).unwrap();
+        let r = scan_search(root, "검색어".into()).unwrap();
         assert_eq!(r.hits.len(), 1);
         assert_eq!(r.hits[0].line_no, 2);
         assert_eq!(r.hits[0].line, "검색어를 찾는다");
@@ -258,7 +283,7 @@ mod tests {
             ("other.md", "# 보고서 제목\n"),
             ("plain.md", "그냥 보고서 언급\n"),
         ]);
-        let r = search_repo(root, "보고서".into()).unwrap();
+        let r = scan_search(root, "보고서".into()).unwrap();
         assert_eq!(r.files, 3);
         assert!(r.hits[0].name.contains("보고서"), "파일명 일치가 맨 위 -> {}", r.hits[0].name);
         let heading = r.hits.iter().position(|h| h.name == "other.md").unwrap();
@@ -274,7 +299,7 @@ mod tests {
             (".git/y.md", "찾을말\n"),
             ("sub/deep.md", "찾을말\n"),
         ]);
-        let r = search_repo(root, "찾을말".into()).unwrap();
+        let r = scan_search(root, "찾을말".into()).unwrap();
         let names: Vec<_> = r.hits.iter().map(|h| h.name.clone()).collect();
         assert_eq!(r.files, 2, "keep.md 와 sub/deep.md 만 -> {names:?}");
     }
@@ -282,16 +307,16 @@ mod tests {
     #[test]
     fn 대소문자를_가리지_않는다_빈_질의는_오류() {
         let root = make("case", &[("a.md", "Hello World\n")]);
-        assert_eq!(search_repo(root.clone(), "hello".into()).unwrap().hits.len(), 1);
-        assert_eq!(search_repo(root.clone(), "WORLD".into()).unwrap().hits.len(), 1);
-        assert!(search_repo(root, "  ".into()).is_err());
+        assert_eq!(scan_search(root.clone(), "hello".into()).unwrap().hits.len(), 1);
+        assert_eq!(scan_search(root.clone(), "WORLD".into()).unwrap().hits.len(), 1);
+        assert!(scan_search(root, "  ".into()).is_err());
     }
 
     #[test]
     fn 한_파일이_결과를_다_차지하지_않는다() {
         let body = "찾을말\n".repeat(100);
         let root = make("cap", &[("many.md", &body), ("one.md", "찾을말\n")]);
-        let r = search_repo(root, "찾을말".into()).unwrap();
+        let r = scan_search(root, "찾을말".into()).unwrap();
         let from_many = r.hits.iter().filter(|h| h.name == "many.md").count();
         assert_eq!(from_many, PER_FILE, "한 파일에서 최대 {PER_FILE}줄");
         assert!(r.hits.iter().any(|h| h.name == "one.md"), "다른 파일도 자리를 얻는다");

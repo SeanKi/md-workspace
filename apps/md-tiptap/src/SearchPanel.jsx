@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { invoke, isTauri } from './core.js'
+import { invoke, isTauri, note } from './core.js'
+
+/** 이 문서가 그 저장소 안인가 — `/` 와 `\` · 대소문자를 가리지 않는다 (Windows 경로) */
+const inside = (doc, root) => {
+  const n = (p) => String(p ?? '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  return !!doc && n(doc).startsWith(n(root) + '/')
+}
 
 /** 결과 칸 기본 높이 — 대략 열 줄 */
 export const SEARCH_HEIGHT = 240
@@ -50,12 +56,15 @@ async function run(repos, query) {
   let scanned = 0
   let truncated = false
   let ms = 0
+  let indexed = repos.length > 0
+  // 저장소마다 따로 — 색인(search_index.rs)을 쓰면 저장소 하나에 수 ms 다
   for (const repo of repos) {
     const r = await invoke('search_repo', { root: repo.path, query })
     all.push(...r.hits.map((h) => ({ ...h, repo: repo.name })))
     scanned += r.scanned
     truncated = truncated || r.truncated
     ms += r.ms
+    indexed = indexed && r.indexed
   }
   all.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path) || a.line_no - b.line_no)
 
@@ -70,7 +79,7 @@ async function run(repos, query) {
     }
     g.hits.push(h)
   }
-  return { groups, count: all.length, scanned, truncated, ms }
+  return { groups, count: all.length, scanned, truncated, ms, indexed }
 }
 
 export default function SearchPanel({ repos, activePath, onOpen, height = SEARCH_HEIGHT, onHeight }) {
@@ -81,7 +90,28 @@ export default function SearchPanel({ repos, activePath, onOpen, height = SEARCH
   const [busy, setBusy] = useState(false)
   const gen = useRef(0)   // 늦게 도착한 옛 검색 결과가 새 결과를 덮지 않게
 
-  const targets = scopeAll ? repos : repos.filter((r) => activePath?.startsWith(r.path))
+  // "모든 저장소" 를 끄면 지금 열린 문서가 든 저장소만 찾는다
+  const targets = scopeAll ? repos : repos.filter((r) => inside(activePath, r.path))
+
+  // 앱이 뜨면 저장소 색인을 뒤에서 미리 맞춰 둔다 — 첫 찾기도 빠르게 (색인을 못 쓰면 아무 일도 안 한다)
+  const repoKey = repos.map((r) => r.path).join('\n')
+  useEffect(() => {
+    if (!isTauri || !repos.length) return
+    invoke('search_warm', { roots: repos.map((r) => r.path) }).catch((e) => note(`색인 준비 실패: ${e}`))
+  }, [repoKey])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 색인이 뒤에서 바뀐 것을 맞추면 한 번 더 찾는다 — 방금 고친 문서도 결과에 들게
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!isTauri) return
+    let off = null
+    let dead = false
+    import('@tauri-apps/api/event')
+      .then(({ listen }) => listen('search-index-changed', () => setTick((n) => n + 1)))
+      .then((u) => { if (dead) u(); else off = u })
+      .catch((e) => note(`색인 알림 듣기 실패: ${e}`))
+    return () => { dead = true; off?.() }
+  }, [])
 
   useEffect(() => {
     const q = query.trim()
@@ -98,7 +128,7 @@ export default function SearchPanel({ repos, activePath, onOpen, height = SEARCH
       if (mine === gen.current) setBusy(false)
     }, DEBOUNCE)
     return () => clearTimeout(t)
-  }, [query, scopeAll, repos.length, activePath])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query, scopeAll, repos.length, activePath, tick])   // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="search">
@@ -121,7 +151,7 @@ export default function SearchPanel({ repos, activePath, onOpen, height = SEARCH
           <span className="spacer" />
           {busy ? '찾는 중…'
             : error ? ''
-              : result ? `${result.count}곳 · 파일 ${result.groups.length}개 · ${result.ms}ms` : ''}
+              : result ? `${result.count}곳 · 파일 ${result.groups.length}개 · ${result.ms}ms${result.indexed ? '' : ' · 직접 훑음'}` : ''}
         </div>
       )}
 
@@ -132,7 +162,11 @@ export default function SearchPanel({ repos, activePath, onOpen, height = SEARCH
       <div className="search-results" style={{ height }}>
       {error && <div className="search-err">{error}</div>}
 
-      {result && result.groups.length === 0 && !busy && (
+      {!scopeAll && !targets.length && !busy && (
+        <div className="search-empty">지금 열린 문서가 등록된 저장소 안에 없어 찾을 곳이 없습니다 — "모든 저장소" 를 켜세요</div>
+      )}
+
+      {result && result.groups.length === 0 && !busy && targets.length > 0 && (
         <div className="search-empty">찾은 것이 없습니다 ({result.scanned}개 문서를 봤습니다)</div>
       )}
 
